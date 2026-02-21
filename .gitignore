@@ -2,13 +2,8 @@
 .env
 config/candidate_profile.json
 
-# Your personal resume variants (gitignore your own copies)
-# base_resume.html is tracked as a starter template
-resume/base_resume_ai.html
-resume/my_resume.html
-
-# Generated output
-resume/output/
+# Entire resume folder — personal files, keep off git
+resume/
 
 # Job history (machine-specific)
 data/seen_jobs.json
