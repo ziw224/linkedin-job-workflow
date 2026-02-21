@@ -12,7 +12,6 @@ An end-to-end automated pipeline that scrapes LinkedIn, tailors your resume + co
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/ziw224/linkedin-job-workflow?style=flat&color=yellow)](https://github.com/ziw224/linkedin-job-workflow/stargazers)
 [![Branch: main](https://img.shields.io/badge/branch-main%20%7C%20skill-6366f1?style=flat)](https://github.com/ziw224/linkedin-job-workflow)
-[![Branch: mcp](https://img.shields.io/badge/branch-mcp-10b981?style=flat)](https://github.com/ziw224/linkedin-job-workflow/tree/mcp)
 [![Branch: cli](https://img.shields.io/badge/branch-cli-f59e0b?style=flat)](https://github.com/ziw224/linkedin-job-workflow/tree/cli)
 
 ![Preview](assets/demo.png)
@@ -28,7 +27,6 @@ This repo ships three ways to use the workflow — pick what fits your setup:
 | Branch | How you interact | Best for |
 |---|---|---|
 | **[main](https://github.com/ziw224/linkedin-job-workflow)** ⭐ | Talk to your AI assistant (OpenClaw/Discord) | Daily use — trigger by voice or chat |
-| **[mcp](https://github.com/ziw224/linkedin-job-workflow/tree/mcp)** | Claude Desktop tool calls | Claude Desktop / Cursor power users |
 | **[cli](https://github.com/ziw224/linkedin-job-workflow/tree/cli)** | `python src/cli.py run` from terminal | Cron jobs, scripts, server automation |
 
 The core pipeline (scraping, tailoring, PDF, Discord) is identical across all branches.
@@ -173,17 +171,10 @@ openclaw skills info job-hunt
 
 ---
 
-## 🤖 MCP Server (mcp branch)
-
-Want to call the workflow as tools from **Claude Desktop** or **Cursor**?
-→ Switch to the [`mcp` branch](https://github.com/ziw224/linkedin-job-workflow/tree/mcp) — it adds `src/mcp_server.py` with 5 callable tools.
-
----
-
 ## 💻 CLI (cli branch)
 
 Prefer running from the terminal or a cron job directly?
-→ Switch to the [`cli` branch](https://github.com/ziw224/linkedin-job-workflow/tree/cli) — it focuses on `python src/cli.py run / scrape / status`.
+→ Switch to the [`cli` branch](https://github.com/ziw224/linkedin-job-workflow/tree/cli) — run `python src/cli.py run / scrape / status` from anywhere.
 
 ---
 
