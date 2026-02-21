@@ -11,10 +11,27 @@ An end-to-end automated pipeline that scrapes LinkedIn, tailors your resume + co
 [![Claude AI](https://img.shields.io/badge/Claude-AI%20Powered-D97706?style=flat&logo=anthropic&logoColor=white)](https://anthropic.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/ziw224/linkedin-job-workflow?style=flat&color=yellow)](https://github.com/ziw224/linkedin-job-workflow/stargazers)
+[![Branch: main](https://img.shields.io/badge/branch-main%20%7C%20skill-6366f1?style=flat)](https://github.com/ziw224/linkedin-job-workflow)
+[![Branch: mcp](https://img.shields.io/badge/branch-mcp-10b981?style=flat)](https://github.com/ziw224/linkedin-job-workflow/tree/mcp)
+[![Branch: cli](https://img.shields.io/badge/branch-cli-f59e0b?style=flat)](https://github.com/ziw224/linkedin-job-workflow/tree/cli)
 
 ![Preview](assets/demo.png)
 
 </div>
+
+---
+
+## 🌿 Branches
+
+This repo ships three ways to use the workflow — pick what fits your setup:
+
+| Branch | How you interact | Best for |
+|---|---|---|
+| **[main](https://github.com/ziw224/linkedin-job-workflow)** ⭐ | Talk to your AI assistant (OpenClaw/Discord) | Daily use — trigger by voice or chat |
+| **[mcp](https://github.com/ziw224/linkedin-job-workflow/tree/mcp)** | Claude Desktop tool calls | Claude Desktop / Cursor power users |
+| **[cli](https://github.com/ziw224/linkedin-job-workflow/tree/cli)** | `python src/cli.py run` from terminal | Cron jobs, scripts, server automation |
+
+The core pipeline (scraping, tailoring, PDF, Discord) is identical across all branches.
 
 ---
 
@@ -121,60 +138,47 @@ Phase 3 — Serial (~5 sec)
 
 ---
 
-## 🤖 Use as an MCP Server
+## 🗣️ Use as an AI Skill (main branch — recommended)
 
-[MCP (Model Context Protocol)](https://modelcontextprotocol.io) lets AI assistants like **Claude Desktop** or **Cursor** call your workflow as tools — just describe what you want in natural language.
+The `main` branch ships an **[OpenClaw](https://openclaw.ai) skill** so your AI assistant can trigger the workflow on demand from any chat — Discord, Telegram, Signal, iMessage, etc.
 
-### Available tools
+### What you can say
 
-| Tool | What it does |
-|---|---|
-| `run_workflow` | Full pipeline: scrape → tailor → PDF → Discord report |
-| `scrape_jobs` | Preview today's LinkedIn openings (no Claude calls, no changes) |
-| `tailor_job` | Tailor resume for one job (pass a URL or paste the JD) |
-| `get_status` | See today's output files and recent logs |
-| `get_config` | View current search keywords and locations |
+```
+"抓一下今天的职位"       → scrape LinkedIn, post job list to Discord (~3 min)
+"跑一下求职流水线"       → full run: tailor + PDF + Discord report (~12 min)
+"今天跑了什么"           → check today's output status
+```
 
-### Setup (Claude Desktop)
+### Setup
 
-**1.** Install dependencies and make sure `candidate_profile.json` is filled in.
-
-**2.** Find your absolute Python path:
+**1.** Copy the skill into your OpenClaw workspace:
 ```bash
-which python3
+cp -r skills/job-hunt ~/.openclaw/workspace-main/skills/
 ```
 
-**3.** Open (or create) your Claude Desktop config file:
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-
-**4.** Add the `job-hunt` server (see `mcp_config_example.json` for the full template):
-```json
-{
-  "mcpServers": {
-    "job-hunt": {
-      "command": "/your/python3/path",
-      "args": ["/absolute/path/to/job-workflow/src/mcp_server.py"],
-      "env": {
-        "DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/..."
-      }
-    }
-  }
-}
+**2.** Restart OpenClaw:
+```bash
+openclaw gateway restart
 ```
 
-**5.** Restart Claude Desktop. You'll see 🔨 **job-hunt** in the tool bar.
+**3.** That's it — talk to your assistant and it handles the rest.
 
-### Example prompts
+> 📖 Full setup (Python, Claude CLI, config files): see [SETUP.md](SETUP.md)
 
-```
-"Run today's job hunt pipeline"
-"What new jobs are on LinkedIn today?"
-"Tailor my resume for this job: [paste LinkedIn URL]"
-"Tailor my resume for this JD: [paste job description]"
-"How did today's job hunt go?"
-"Show me my current search config"
-```
+---
+
+## 🤖 MCP Server (mcp branch)
+
+Want to call the workflow as tools from **Claude Desktop** or **Cursor**?
+→ Switch to the [`mcp` branch](https://github.com/ziw224/linkedin-job-workflow/tree/mcp) — it adds `src/mcp_server.py` with 5 callable tools.
+
+---
+
+## 💻 CLI (cli branch)
+
+Prefer running from the terminal or a cron job directly?
+→ Switch to the [`cli` branch](https://github.com/ziw224/linkedin-job-workflow/tree/cli) — it focuses on `python src/cli.py run / scrape / status`.
 
 ---
 
@@ -249,12 +253,16 @@ Everything is controlled through two JSON files — no code changes needed:
 linkedin-job-workflow/
 ├── src/
 │   ├── main.py               # Orchestrator — phases 1 / 2 / 3
+│   ├── cli.py                # CLI wrapper (scrape / run / status)
 │   ├── linkedin_scraper.py   # Playwright LinkedIn scraper (no login)
 │   ├── resume_tailor.py      # Claude-powered resume tailoring
 │   ├── cover_letter.py       # Cover letter + "Why Company" generation
 │   ├── pdf_generator.py      # HTML → PDF via Playwright
 │   ├── notifier.py           # Discord webhook reporter
 │   └── run_one.py            # Quick single-job test
+├── skills/
+│   └── job-hunt/
+│       └── SKILL.md          # OpenClaw skill (copy to ~/.openclaw/workspace-main/skills/)
 ├── config/
 │   ├── search_config.json                # ✏️ Edit to change search behavior
 │   ├── candidate_profile.example.json   # Template — copy to candidate_profile.json
