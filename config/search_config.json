@@ -9,29 +9,18 @@
   "sort_by": "DD",
   "_sort_by_comment": "DD = most recent first. R = most relevant.",
 
-  "max_days_old": 14,
-  "_max_days_old_comment": "Primary filter: skip jobs older than this many days. 0 = no limit.",
+  "max_days_old": 0,
+  "_max_days_old_comment": "0 = no time limit. Sort by post date, newest first.",
 
-  "max_candidates": 30,
+  "max_candidates": 60,
   "_max_candidates_comment": "Max job cards to collect per scrape attempt.",
 
-  "job_workers": 2,
-  "_job_workers_comment": "Parallel workers for resume/cover-letter generation. 2 is safe for Claude Max.",
+  "job_workers": 4,
+  "_job_workers_comment": "Parallel workers for resume/cover-letter generation.",
 
   "fallback": {
-    "_comment": "Triggered when primary scrape yields fewer jobs than target_count. Stages run in order until targets are met.",
-    "stages": [
-      {
-        "label": "Widen time window",
-        "max_days_old": 30
-      },
-      {
-        "label": "Widen time + experience level",
-        "max_days_old": 0,
-        "sde_experience_levels": [2, 3],
-        "ai_experience_levels": [2, 3, 4]
-      }
-    ]
+    "_comment": "No fallback stages — search is already unrestricted by time.",
+    "stages": []
   },
 
   "categories": {
@@ -46,10 +35,10 @@
       ],
       "experience_levels": [2],
       "_experience_levels_comment": "1=Internship 2=Entry 3=Associate 4=Mid-Senior",
-      "target_count": 5
+      "target_count": 10
     },
     "ai": {
-      "_comment": "AI / ML Engineer roles — broader filter since fewer entry-level AI jobs exist",
+      "_comment": "AI / ML Engineer roles",
       "keywords": [
         "AI Engineer",
         "ML Engineer",

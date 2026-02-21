@@ -1,90 +1,102 @@
 ---
 name: job-hunt
-description: "Trigger the LinkedIn job-hunt workflow on demand and post results to Discord. Use when the user asks to: run the job hunt, find new jobs, scrape LinkedIn, check today's jobs, or anything related to automated job searching. Supports three modes: (1) scrape-only — preview new jobs without tailoring, (2) full run — scrape + tailor resumes + cover letters + PDFs + Discord report, (3) status — show today's output."
+description: "Automated LinkedIn job-hunt assistant. Triggered by /search, /run, /status, /schedule commands — or natural language equivalents like '找工作', '抓职位', '看今天进度', '设定定时'. Use when the user wants to search jobs, run the full tailoring pipeline, check application status, or schedule daily automation."
 ---
 
 # Job Hunt Skill
 
-Trigger the job-hunt workflow and post results to Discord.
-
-**Before first use:** Edit the variables below to match your setup:
-- `JOB_WORKFLOW_DIR` — absolute path to your cloned `job-workflow` folder
-- `PYTHON` — path to the Python that has your dependencies installed (`which python3`)
-
+**Setup variables (edit these after install):**
 ```
-JOB_WORKFLOW_DIR = ~/Projects/job-workflow
-PYTHON           = python3
+JOB_WORKFLOW_DIR = ~/Projects/job-workflow   ← your local path
+PYTHON           = python3                   ← check with: which python3
 ```
 
----
-
-## Intent → Action mapping
-
-| User says | Action |
-|---|---|
-| "有什么新职位" / "scrape jobs" / "preview jobs" | **scrape** |
-| "跑一下求职" / "run job hunt" / "找工作" | **full run** |
-| "今天跑了什么" / "job status" | **status** |
-
-When intent is ambiguous, default to **scrape** (safe, fast, no Claude costs).
+**Language rule:** Detect the user's language from their message. Reply in Chinese if they write Chinese, English if English. Mixed input → use Chinese.
 
 ---
 
 ## Commands
 
-### Scrape (preview only — ~3 min, no side effects)
-```bash
-cd {JOB_WORKFLOW_DIR} && {PYTHON} src/cli.py scrape
-```
-Outputs a JSON array of job objects. Parse and format for Discord.
+### `/search`
+Search LinkedIn for jobs and list results. No tailoring, no side effects.
 
-### Full run (~12 min, tailors resumes + sends Discord report)
-```bash
-cd {JOB_WORKFLOW_DIR} && {PYTHON} src/cli.py run
-```
-Long-running — use `exec background=true yieldMs=30000`, poll until done.
-The workflow itself sends the detailed Discord report automatically.
+**Steps:**
+1. Run: `cd {JOB_WORKFLOW_DIR} && {PYTHON} src/cli.py scrape`
+2. Parse JSON output. Sort by `days_old` ascending (newest first). Take top 10.
+3. Post formatted list to Discord:
 
-### Status
-```bash
-cd {JOB_WORKFLOW_DIR} && {PYTHON} src/cli.py status
 ```
-Outputs JSON with today's companies and success/fail per job.
+🔍 **LinkedIn Job Search** — {date}
+Found {N} jobs. Here are the latest 10:
+
+1. **{title}** @ {company} | {location} | 📅 {age}
+   🔗 {url}
+   > {snippet}
+```
+
+If 0 results: post "No new jobs found right now. Try again later 👀"
 
 ---
 
-## How to handle each action
+### `/run`
+Full pipeline with user confirmation before processing.
 
-### Scrape
-1. Run scrape command (foreground, ~3 min)
-2. Parse JSON output
-3. Post formatted message to Discord:
+**Step 1 — Preview:**
+1. Run scrape, sort newest first, take top 10
+2. Post job list + confirmation prompt:
    ```
-   🔍 **LinkedIn 今日新职位** — {date}
-   Found {N} new job(s):
-
-   1. **{title}** @ {company} | {location} | {age}
-      🔗 {url}
-      > {snippet}
+   📋 Here are today's top 10 jobs, sorted by date.
+   Reply ✅ to confirm and start tailoring, or tell me which ones to skip.
    ```
-4. If 0 jobs: post "今天暂时没有新职位，明天再看 👀"
 
-### Full run
-1. Tell user: "开始跑完整流水线，大概 10-12 分钟，完成后 Discord 会有报告 🚀"
-2. Run in background (`exec background=true`)
-3. When done: "✅ 完成！Discord job-hunt channel 里有完整报告"
+**Step 2 — Wait for confirmation:**
+- User replies ✅ / "yes" / "go" / "确认" → proceed
+- User says "skip X, Y" → note, proceed
+- User says "cancel" / "取消" → abort
 
-### Status
-1. Run status command
+**Step 3 — Run full pipeline:**
+1. Tell user: "🚀 Starting pipeline, ~10-15 min. Discord report when done."
+2. Run: `cd {JOB_WORKFLOW_DIR} && {PYTHON} src/cli.py run` (background, poll every 60s)
+3. When done: "✅ Done! Check #job-hunt for today's resume report 📬"
+
+---
+
+### `/status`
+Check today's progress and output files.
+
+**Steps:**
+1. Run: `cd {JOB_WORKFLOW_DIR} && {PYTHON} src/cli.py status`
 2. Parse JSON, post summary:
-   ```
-   📊 **今日求职状态** — {date}
-   {total} 家公司 · ✅ {ok} 成功 · ❌ {failed} 失败
-   ```
+```
+📊 **Job Hunt Status** — {date}
+{total} companies · ✅ {ok} success · ❌ {failed} failed
+
+✅ Notion — resume + PDF + cover letter + why-company
+❌ Stripe — HTML only (PDF failed)
+```
+
+If no output today: "Nothing run yet today. Use /run to start 🚀"
+
+---
+
+### `/schedule HH:MM`
+Set a daily cron job to auto-run the full pipeline.
+
+**Steps:**
+1. Parse time (24h format, e.g. `/schedule 09:00`)
+2. Run:
+```bash
+(crontab -l 2>/dev/null | grep -v "job-workflow/run.sh"; echo "{MIN} {HOUR} * * * {JOB_WORKFLOW_DIR}/run.sh >> {JOB_WORKFLOW_DIR}/logs/cron.log 2>&1") | crontab -
+```
+3. Verify with `crontab -l | grep job-workflow`
+4. Confirm to user: "⏰ Scheduled daily run at {HH:MM}. Results will post to Discord #job-hunt."
+
+To cancel: `(crontab -l 2>/dev/null | grep -v "job-workflow/run.sh") | crontab -`
 
 ---
 
 ## Error handling
-- **Scrape returns 0 jobs**: normal, LinkedIn may be slow — post friendly message
-- **Exit code non-zero**: read last 20 lines of `{JOB_WORKFLOW_DIR}/logs/workflow.log`
-- **Full run timeout (>15 min)**: post warning, check logs
+- **0 jobs found**: friendly message, suggest retry
+- **Non-zero exit**: read last 20 lines of `{JOB_WORKFLOW_DIR}/logs/workflow.log`
+- **Run timeout >20 min**: post warning with log tail
+- **Schedule parse error**: ask user to re-enter in HH:MM format
