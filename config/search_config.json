@@ -10,7 +10,7 @@
   "_sort_by_comment": "DD = most recent first. R = most relevant.",
 
   "max_days_old": 0,
-  "_max_days_old_comment": "0 = no time limit. Sort by post date, newest first.",
+  "_max_days_old_comment": "Time limit for job search. 0 = no limit (search all available). Set to e.g. 7 or 14 to restrict to recent jobs only. When a limit is set, results are strictly filtered — no fallback expansion.",
 
   "max_candidates": 60,
   "_max_candidates_comment": "Max job cards to collect per scrape attempt.",
@@ -19,7 +19,7 @@
   "_job_workers_comment": "Parallel workers for resume/cover-letter generation.",
 
   "fallback": {
-    "_comment": "No fallback stages — search is already unrestricted by time.",
+    "_comment": "Fallback is intentionally disabled. Search returns exactly what matches — no range expansion.",
     "stages": []
   },
 

@@ -5,11 +5,9 @@ description: "Automated LinkedIn job-hunt assistant. Triggered by /search, /run,
 
 # Job Hunt Skill
 
-**Setup variables (edit these after install):**
-```
-JOB_WORKFLOW_DIR = ~/Projects/job-workflow   ← your local path
-PYTHON           = python3                   ← check with: which python3
-```
+**Workflow location:** `~/Projects/job-workflow/`
+**Python:** `/opt/homebrew/Caskroom/miniconda/base/bin/python3`
+**CLI:** `~/Projects/job-workflow/src/cli.py`
 
 **Language rule:** Detect the user's language from their message. Reply in Chinese if they write Chinese, English if English. Mixed input → use Chinese.
 
@@ -17,47 +15,68 @@ PYTHON           = python3                   ← check with: which python3
 
 ## Commands
 
-### `/search`
+### `/search [Nd]`
 Search LinkedIn for jobs and list results. No tailoring, no side effects.
 
+Optional time filter: `/search 7d` = last 7 days only, `/search` = no limit.
+
+**Time filter logic (strict — no fallback):**
+- With limit (e.g. `7d`): only return jobs ≤ 7 days old. If 0 found, report 0 — do NOT expand the range.
+- Without limit: return all available jobs, sorted newest first.
+
 **Steps:**
-1. Run: `cd {JOB_WORKFLOW_DIR} && {PYTHON} src/cli.py scrape`
-2. Parse JSON output. Sort by `days_old` ascending (newest first). Take top 10.
-3. Post formatted list to Discord:
+1. Before running, check if a time filter was given. If yes, temporarily update `max_days_old` in `config/search_config.json`:
+   ```bash
+   # e.g. for /search 7d:
+   cd ~/Projects/job-workflow && python3 -c "
+   import json; p='config/search_config.json'
+   c=json.load(open(p)); c['max_days_old']=7
+   json.dump(c,open(p,'w'),indent=2)
+   "
+   ```
+   Restore to 0 after scrape completes.
+2. Run: `cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py scrape`
+3. Parse JSON output. Sort by `days_old` ascending (newest first). Take top 10.
+4. Post formatted list to Discord (current channel):
 
 ```
-🔍 **LinkedIn Job Search** — {date}
-Found {N} jobs. Here are the latest 10:
+🔍 **LinkedIn 职位搜索结果** — {date}{time_filter_note}
+共找到 {N} 个职位，以下是最新的 10 个：
 
 1. **{title}** @ {company} | {location} | 📅 {age}
    🔗 {url}
    > {snippet}
 ```
 
-If 0 results: post "No new jobs found right now. Try again later 👀"
+If 0 results with time limit: "过去 {N} 天内没有找到新职位。可以用 `/search` 搜索全部范围。"
+If 0 results no limit: "暂时没有找到新职位，稍后再试 👀"
 
 ---
 
-### `/run`
-Full pipeline with user confirmation before processing.
+### `/run [Nd]`
+Full pipeline with user confirmation before processing. Supports same time filter as `/search` (e.g. `/run 7d` = last 7 days only, strict — no fallback expansion).
+
+**Steps:**
 
 **Step 1 — Preview:**
-1. Run scrape, sort newest first, take top 10
-2. Post job list + confirmation prompt:
+1. Apply time filter if given (same strict logic as /search — no fallback)
+2. Run scrape command, sort newest first, take top 10
+3. Post the job list to Discord with a confirmation prompt at the end:
    ```
-   📋 Here are today's top 10 jobs, sorted by date.
-   Reply ✅ to confirm and start tailoring, or tell me which ones to skip.
+   📋 以上是今日精选的 10 个职位，按最新排序。
+   回复 ✅ 确认开始定制简历，或告诉我要跳过哪些。
    ```
 
 **Step 2 — Wait for confirmation:**
-- User replies ✅ / "yes" / "go" / "确认" → proceed
-- User says "skip X, Y" → note, proceed
-- User says "cancel" / "取消" → abort
+- User replies ✅ / "确认" / "yes" / "go" → proceed
+- User says "跳过 X, Y" → note which to skip, then proceed
+- User says "取消" / "cancel" → abort, post "已取消 ✅"
 
 **Step 3 — Run full pipeline:**
-1. Tell user: "🚀 Starting pipeline, ~10-15 min. Discord report when done."
-2. Run: `cd {JOB_WORKFLOW_DIR} && {PYTHON} src/cli.py run` (background, poll every 60s)
-3. When done: "✅ Done! Check #job-hunt for today's resume report 📬"
+1. Tell user: "🚀 开始定制简历，大约需要 10-15 分钟，完成后 Discord 会收到详细报告。"
+2. Run: `cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py run`
+   - Use `exec background=true`, poll every 60s
+3. When done: "✅ 完成！去 #job-hunt 查看今天的简历报告 📬"
 
 ---
 
@@ -65,17 +84,19 @@ Full pipeline with user confirmation before processing.
 Check today's progress and output files.
 
 **Steps:**
-1. Run: `cd {JOB_WORKFLOW_DIR} && {PYTHON} src/cli.py status`
-2. Parse JSON, post summary:
-```
-📊 **Job Hunt Status** — {date}
-{total} companies · ✅ {ok} success · ❌ {failed} failed
+1. Run: `cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py status`
+2. Parse JSON. Post summary:
 
-✅ Notion — resume + PDF + cover letter + why-company
-❌ Stripe — HTML only (PDF failed)
+```
+📊 **今日求职状态** — {date}
+处理了 {total} 家公司 · ✅ {ok} 成功 · ❌ {failed} 失败
+
+✅ Notion — 简历 + PDF + Cover Letter + Why Notion
+✅ OpenAI — 简历 + PDF + Cover Letter + Why OpenAI
+❌ Stripe — 仅 HTML（PDF 生成失败）
 ```
 
-If no output today: "Nothing run yet today. Use /run to start 🚀"
+If no output today: "今天还没有跑过流水线。发 /run 开始 🚀"
 
 ---
 
@@ -83,20 +104,27 @@ If no output today: "Nothing run yet today. Use /run to start 🚀"
 Set a daily cron job to auto-run the full pipeline.
 
 **Steps:**
-1. Parse time (24h format, e.g. `/schedule 09:00`)
+1. Parse the time (24h format, e.g. `/schedule 09:00` → hour=9, min=0)
 2. Run:
 ```bash
-(crontab -l 2>/dev/null | grep -v "job-workflow/run.sh"; echo "{MIN} {HOUR} * * * {JOB_WORKFLOW_DIR}/run.sh >> {JOB_WORKFLOW_DIR}/logs/cron.log 2>&1") | crontab -
+(crontab -l 2>/dev/null | grep -v "job-workflow/run.sh"; echo "{min} {hour} * * * /Users/zihanwang/Projects/job-workflow/run.sh >> /Users/zihanwang/Projects/job-workflow/logs/cron.log 2>&1") | crontab -
 ```
-3. Verify with `crontab -l | grep job-workflow`
-4. Confirm to user: "⏰ Scheduled daily run at {HH:MM}. Results will post to Discord #job-hunt."
+3. Verify: `crontab -l | grep job-workflow`
+4. Post confirmation:
+```
+⏰ 已设定每天 {HH:MM} 自动运行求职流水线
+完成后结果会自动推送到 Discord #job-hunt
+```
 
-To cancel: `(crontab -l 2>/dev/null | grep -v "job-workflow/run.sh") | crontab -`
+To cancel schedule: user says "取消定时" → remove the line:
+```bash
+(crontab -l 2>/dev/null | grep -v "job-workflow/run.sh") | crontab -
+```
 
 ---
 
 ## Error handling
-- **0 jobs found**: friendly message, suggest retry
-- **Non-zero exit**: read last 20 lines of `{JOB_WORKFLOW_DIR}/logs/workflow.log`
-- **Run timeout >20 min**: post warning with log tail
+- **Scrape fails / 0 jobs**: post friendly message, suggest retry
+- **cli.py exits non-zero**: read `~/Projects/job-workflow/logs/workflow.log` last 20 lines
+- **Full run timeout >20 min**: post warning with log tail
 - **Schedule parse error**: ask user to re-enter in HH:MM format
