@@ -31,10 +31,11 @@ except ImportError:
     sys.exit(1)
 
 if not db.db_available():
-    print("❌ MySQL not reachable. Check DB_HOST/DB_USER/DB_PASSWORD in .env")
+    print("❌ Database not reachable. Check config.")
     sys.exit(1)
 
-print("✅ MySQL connected")
+backend = "MySQL" if db._USE_MYSQL else f"SQLite ({db._SQLITE_PATH})"
+print(f"✅ Connected to {backend}")
 
 USERS_DIR = ROOT / "config" / "users"
 owner_id  = os.getenv("OWNER_DISCORD_ID", "")

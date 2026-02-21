@@ -5,6 +5,11 @@ config/candidate_profile.json
 # Per-user data (resumes, profiles) — never commit personal info
 config/users/
 
+# SQLite database (contains personal data)
+data/job_workflow.db
+data/job_workflow.db-wal
+data/job_workflow.db-shm
+
 # Entire resume folder — personal files, keep off git
 resume/
 
