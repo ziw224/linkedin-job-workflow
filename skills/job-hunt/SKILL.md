@@ -1,6 +1,6 @@
 ---
 name: job-hunt
-description: "Automated LinkedIn job-hunt assistant. Triggered by /search, /run, /status, /schedule commands — or natural language equivalents like '找工作', '抓职位', '看今天进度', '设定定时'. Use when the user wants to search jobs, run the full tailoring pipeline, check application status, or schedule daily automation."
+description: "Automated LinkedIn job-hunt assistant. Triggered by 'job search', 'job run', 'job status', 'job schedule' commands — or natural language equivalents like '找工作', '抓职位', '看今天进度', '设定定时'. Use when the user wants to search jobs, run the full tailoring pipeline, check application status, or schedule daily automation."
 ---
 
 # Job Hunt Skill
@@ -15,10 +15,10 @@ description: "Automated LinkedIn job-hunt assistant. Triggered by /search, /run,
 
 ## Commands
 
-### `/search [Nd]`
+### `job search [Nd]`
 Search LinkedIn for jobs and list results. No tailoring, no side effects.
 
-Optional time filter: `/search 7d` = last 7 days only, `/search` = no limit.
+Optional time filter: `job search 7d` = last 7 days only, `job search` = no limit.
 
 **Time filter logic (strict — no fallback):**
 - With limit (e.g. `7d`): only return jobs ≤ 7 days old. If 0 found, report 0 — do NOT expand the range.
@@ -48,13 +48,13 @@ Optional time filter: `/search 7d` = last 7 days only, `/search` = no limit.
    > {snippet}
 ```
 
-If 0 results with time limit: "过去 {N} 天内没有找到新职位。可以用 `/search` 搜索全部范围。"
+If 0 results with time limit: "过去 {N} 天内没有找到新职位。可以用 `job search` 搜索全部范围。"
 If 0 results no limit: "暂时没有找到新职位，稍后再试 👀"
 
 ---
 
-### `/run [Nd]`
-Full pipeline with user confirmation before processing. Supports same time filter as `/search` (e.g. `/run 7d` = last 7 days only, strict — no fallback expansion).
+### `job run [Nd]`
+Full pipeline with user confirmation before processing. Supports same time filter as `job search` (e.g. `job run 7d` = last 7 days only, strict — no fallback expansion).
 
 **Steps:**
 
@@ -80,7 +80,7 @@ Full pipeline with user confirmation before processing. Supports same time filte
 
 ---
 
-### `/status`
+### `job status`
 Check today's progress and output files.
 
 **Steps:**
@@ -96,11 +96,11 @@ Check today's progress and output files.
 ❌ Stripe — 仅 HTML（PDF 生成失败）
 ```
 
-If no output today: "今天还没有跑过流水线。发 /run 开始 🚀"
+If no output today: "今天还没有跑过流水线。用 `job run` 开始 🚀"
 
 ---
 
-### `/schedule HH:MM`
+### `job schedule HH:MM`
 Set a daily cron job to auto-run the full pipeline.
 
 **Steps:**
