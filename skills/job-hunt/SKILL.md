@@ -51,10 +51,14 @@ Restore to 0 after scrape completes (always, even on error).
 ## Command Details
 
 ### `job search [Nd]`
-1. Apply time filter if given
-2. Run: `cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py scrape`
-3. Sort by `days_old` ascending (newest first), take top 10
-4. Post to Discord:
+1. **Pre-run message** — post immediately before starting:
+   ```
+   🔍 正在搜索 LinkedIn 职位{（过去Nd）if filtered}，预计 2-3 分钟，结果直接发到这里...
+   ```
+2. Apply time filter if given
+3. Run: `cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py scrape`
+4. Sort by `days_old` ascending (newest first), take top 10
+5. Post to Discord:
 ```
 🔍 **LinkedIn 职位搜索** — {date} {(过去Nd) if filtered}
 找到 {N} 个职位，最新 10 个：
@@ -69,20 +73,28 @@ Restore to 0 after scrape completes (always, even on error).
 ---
 
 ### `job run [Nd]`
-**Step 1 — Preview:** Same as `job search`, then append:
+**Step 1 — Pre-run message** (post immediately):
+```
+🚀 Job Run 启动{（过去Nd）if filtered else （无时间限制）}
+📡 Step 1/3: 正在搜索 LinkedIn 职位，预计 2-3 分钟...
+⚙️ 配置：SF + Remote | SDE 目标 10 个 · AI 目标 5 个 | 4 个并发
+```
+
+**Step 2 — Preview:** Run scrape (same as `job search`), then append:
 ```
 📋 以上 10 个职位按最新排序。
 回复 ✅ 确认开始定制简历，或告诉我要跳过哪些。
 ```
-**Step 2 — Wait for confirmation:**
+
+**Step 3 — Wait for confirmation:**
 - ✅ / "确认" / "yes" / "go" → proceed
 - "跳过 X, Y" → note, proceed
 - "取消" / "cancel" → abort, post "已取消"
 
-**Step 3 — Run:**
-1. Tell user: "🚀 开始定制简历，大约 10-15 分钟，完成后 Discord 收到报告。"
+**Step 4 — Run:**
+1. Post: "⚙️ Step 2/3: 开始定制简历 + Cover Letter，约 10-15 分钟，完成后 #job-hunt 收到完整报告 📬"
 2. `cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py run` (background, poll every 60s)
-3. Done: "✅ 完成！去 #job-hunt 查看报告 📬"
+3. Done: "✅ Step 3/3: 完成！共处理 {N} 家公司，去 #job-hunt 查看 📬"
 
 ---
 

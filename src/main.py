@@ -43,6 +43,7 @@ from resume_tailor import tailor_resume
 from pdf_generator import html_to_pdf
 from cover_letter import generate_cover_letter
 from notifier import send_discord_report
+from progress_notifier import notify_started, notify_scraped, BatchProgressReporter, notify_finished
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 LOG_DIR = PROJECT_ROOT / "logs"
@@ -120,12 +121,16 @@ def run():
     logger.info(f"Workers: {JOB_WORKERS} | Max age: {MAX_DAYS_OLD}d")
     logger.info("=" * 60)
 
+    notify_started()  # Discord: "🚀 Job Hunt starting..."
+
     today_dir = OUTPUT_DIR / _date.today().isoformat()
     today_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Phase 1: Scrape (with automatic fallback) ──────────────────────────────
     logger.info("\n📡 Phase 1: Scraping LinkedIn…")
     selected, seen = get_new_jobs()   # already bucketed + fallback handled
+
+    notify_scraped(len(selected))  # Discord: "📋 Found N jobs..."
 
     if not selected:
         logger.info("No new jobs found today.")
@@ -138,6 +143,7 @@ def run():
     logger.info(f"\n⚙️  Phase 2: Generating resumes for {len(selected)} jobs (workers={JOB_WORKERS})…")
 
     results = [None] * len(selected)
+    reporter = BatchProgressReporter(total=len(selected))
 
     with ThreadPoolExecutor(max_workers=JOB_WORKERS) as pool:
         future_to_idx = {
@@ -147,7 +153,10 @@ def run():
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
             try:
-                results[idx] = future.result()
+                result = future.result()
+                results[idx] = result
+                label = f"{result['job']['title']} @ {result['job']['company']}"
+                reporter.job_done(label, result["success"])
             except Exception as e:
                 job = selected[idx]
                 logger.error(f"  ❌ Exception processing {job['title']} @ {job['company']}: {e}")
@@ -155,14 +164,18 @@ def run():
                     "job": job, "html_path": None, "pdf_path": None,
                     "cover_letter": None, "why_company": None, "success": False,
                 }
+                reporter.job_done(f"{job['title']} @ {job['company']}", False)
+
+    reporter.close()  # flush any remaining progress updates
 
     # ── Phase 3: Persist + Notify ──────────────────────────────────────────────
     _save_seen(SEEN_JOBS_FILE, seen)
     logger.info(f"Saved {len(seen)} seen job IDs")
 
-    send_discord_report(results)
-
     elapsed = int(time.time() - t_start)
+    notify_finished(results, elapsed)  # Discord: "✅ Done in Xm Ys"
+    send_discord_report(results)        # Discord: full report
+
     ok = sum(r["success"] for r in results)
     logger.info(f"\n✅ Done in {elapsed//60}m {elapsed%60}s — {ok}/{len(results)} jobs ready")
     logger.info(f"   Output: {today_dir}")

@@ -36,16 +36,27 @@ logging.basicConfig(
 
 
 def cmd_scrape():
-    """Scrape LinkedIn for new jobs and print a JSON list to stdout."""
+    """Scrape LinkedIn for new jobs and print a JSON list to stdout.
+    Uses max_candidates_preview (smaller limit) for speed."""
     from linkedin_scraper import scrape_with_playwright
     from config.settings import SEEN_JOBS_FILE
+    import config.settings as _settings
+
+    # Temporarily use smaller candidate limit for fast preview
+    cfg_path = PROJECT_ROOT / "config" / "search_config.json"
+    cfg = json.load(open(cfg_path))
+    preview_limit = cfg.get("max_candidates_preview", 20)
+    original_limit = _settings.MAX_JOBS_PER_RUN
+    _settings.MAX_JOBS_PER_RUN = preview_limit
 
     seen: set[str] = set()
     if SEEN_JOBS_FILE.exists():
-        import json as _j
-        seen = set(_j.load(open(SEEN_JOBS_FILE)).get("seen_ids", []))
+        seen = set(json.load(open(SEEN_JOBS_FILE)).get("seen_ids", []))
 
-    jobs = scrape_with_playwright(seen)
+    try:
+        jobs = scrape_with_playwright(seen)
+    finally:
+        _settings.MAX_JOBS_PER_RUN = original_limit  # always restore
 
     output = []
     for j in jobs:
