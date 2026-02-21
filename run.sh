@@ -1,14 +1,40 @@
 #!/bin/bash
 # Daily job-hunt workflow runner
-# Cron example (7:30 AM daily):
-#   30 7 * * * /path/to/job-workflow/run.sh >> /path/to/job-workflow/logs/cron.log 2>&1
+# Cron: 30 7 * * * {JOB_WORKFLOW_DIR}/run.sh >> {JOB_WORKFLOW_DIR}/logs/cron.log 2>&1
 
-# Change to the directory this script lives in
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+export PATH="/Users/zihanwang/.local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/usr/local/bin:/usr/bin:/bin"
+export HOME="/Users/zihanwang"
+DIR="{JOB_WORKFLOW_DIR}"
 
-# Add common Python/tool locations to PATH
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+cd "$DIR"
 
-# Run the workflow
+# Load .env
+set -a; [ -f "$DIR/.env" ] && source "$DIR/.env"; set +a
+
+# ── Pre-flight: check Claude CLI auth ──────────────────────────────────────
+CLAUDE_BIN="$(which claude 2>/dev/null || echo ~/.local/bin/claude)"
+AUTH_OK=false
+
+if [ -x "$CLAUDE_BIN" ]; then
+    TEST=$(echo "ping" | "$CLAUDE_BIN" --print "reply with: ok" 2>&1)
+    if echo "$TEST" | grep -qi "ok"; then
+        AUTH_OK=true
+    fi
+fi
+
+if [ "$AUTH_OK" = false ]; then
+    echo "[$(date '+%H:%M:%S')] ❌ Claude CLI not authenticated — aborting run"
+
+    # Send Discord alert
+    if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+        curl -s -X POST "$DISCORD_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"⚠️ **求职自动化失败** — Claude CLI 登录过期！\n请在终端运行 \`claude login\` 重新登录，然后手动触发 \`job run\`。\"}"
+    fi
+    exit 1
+fi
+
+echo "[$(date '+%H:%M:%S')] ✅ Claude CLI auth OK — starting workflow"
+
+# ── Run main pipeline ──────────────────────────────────────────────────────
 python3 src/main.py
