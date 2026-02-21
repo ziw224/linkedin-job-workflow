@@ -5,10 +5,10 @@ description: "Automated LinkedIn job-hunt assistant. Triggered by 'job search', 
 
 # Job Hunt Skill
 
-**Workflow location:** `~/Projects/job-workflow/`
+**Workflow location:** `~/Projects/job-workflow-oss/`
 **Python:** `/opt/homebrew/Caskroom/miniconda/base/bin/python3`
-**CLI:** `~/Projects/job-workflow/src/cli.py`
-**Config:** `~/Projects/job-workflow/config/search_config.json`
+**CLI:** `~/Projects/job-workflow-oss/src/cli.py`
+**Config:** `~/Projects/job-workflow-oss/config/search_config.json`
 
 **Language rule:** Reply in Chinese if user writes Chinese, English if English. Mixed → Chinese.
 
@@ -38,7 +38,7 @@ description: "Automated LinkedIn job-hunt assistant. Triggered by 'job search', 
 
 To apply a time filter, temporarily patch `max_days_old` before scraping:
 ```bash
-cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 -c "
+cd ~/Projects/job-workflow-oss && /opt/homebrew/Caskroom/miniconda/base/bin/python3 -c "
 import json; p='config/search_config.json'
 c=json.load(open(p)); c['max_days_old']={N}
 json.dump(c,open(p,'w'),indent=2)
@@ -56,7 +56,7 @@ Restore to 0 after scrape completes (always, even on error).
    🔍 正在搜索 LinkedIn 职位{（过去Nd）if filtered}，预计 2-3 分钟，结果直接发到这里...
    ```
 2. Apply time filter if given
-3. Run: `cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py scrape`
+3. Run: `cd ~/Projects/job-workflow-oss && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py scrape`
 4. Sort by `days_old` ascending (newest first), take top 10
 5. Post to Discord:
 ```
@@ -91,15 +91,20 @@ Restore to 0 after scrape completes (always, even on error).
 - "跳过 X, Y" → note, proceed
 - "取消" / "cancel" → abort, post "已取消"
 
-**Step 4 — Run:**
-1. Post: "⚙️ Step 2/3: 开始定制简历 + Cover Letter，约 10-15 分钟，完成后 #job-hunt 收到完整报告 📬"
-2. `cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py run` (background, poll every 60s)
-3. Done: "✅ Step 3/3: 完成！共处理 {N} 家公司，去 #job-hunt 查看 📬"
+**Step 4 — Run (non-blocking):**
+1. Post: "⚙️ Step 2/3: 开始定制简历 + Cover Letter，约 10-15 分钟，本地 Terminal 会弹出进度窗口，完成后 Discord 收到报告 📬"
+2. Run launcher (returns immediately — does NOT block the session):
+   ```bash
+   bash ~/Projects/job-workflow-oss/run_local.sh run
+   ```
+3. Immediately reply "✅ 已在后台启动！完成后推送报告到 Discord 📬" — do NOT wait or poll.
+
+> **Important:** `run_local.sh` opens a macOS Terminal window AND runs the workflow as a detached nohup process. The workflow self-notifies Discord when done.
 
 ---
 
 ### `job status`
-1. `cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py status`
+1. `cd ~/Projects/job-workflow-oss && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py status`
 2. Post:
 ```
 📊 **今日求职状态** — {date}
@@ -116,17 +121,17 @@ No output today → "今天还没跑过，用 `job run` 开始 🚀"
 1. Parse time (24h, e.g. `09:00` → hour=9, min=0)
 2. Set cron:
 ```bash
-(crontab -l 2>/dev/null | grep -v "job-workflow/run.sh"; echo "{min} {hour} * * * /Users/zihanwang/Projects/job-workflow/run.sh >> /Users/zihanwang/Projects/job-workflow/logs/cron.log 2>&1") | crontab -
+(crontab -l 2>/dev/null | grep -v "job-workflow-oss/run.sh"; echo "{min} {hour} * * * /Users/zihanwang/Projects/job-workflow-oss/run.sh >> /Users/zihanwang/Projects/job-workflow-oss/logs/cron.log 2>&1") | crontab -
 ```
-3. Verify: `crontab -l | grep job-workflow`
+3. Verify: `crontab -l | grep job-workflow-oss`
 4. Confirm: "⏰ 每天 {HH:MM} 自动跑，结果推送到 #job-hunt"
 
-Cancel schedule: `(crontab -l 2>/dev/null | grep -v "job-workflow/run.sh") | crontab -`
+Cancel schedule: `(crontab -l 2>/dev/null | grep -v "job-workflow-oss/run.sh") | crontab -`
 
 ---
 
 ### `job add <keyword>`
-1. Read `config/search_config.json`
+1. Read `~/Projects/job-workflow-oss/config/search_config.json`
 2. Ask if SDE or AI category (if unclear from keyword)
 3. Append keyword to the appropriate category's `keywords` array
 4. Write back, confirm: "✅ 已添加 '{keyword}' 到 {category} 搜索列表"
@@ -137,7 +142,7 @@ Cancel schedule: `(crontab -l 2>/dev/null | grep -v "job-workflow/run.sh") | cro
 3. If not found: "未找到 '{keyword}'，用 `job config` 查看当前关键词"
 
 ### `job config`
-1. Read `config/search_config.json`
+1. Read `~/Projects/job-workflow-oss/config/search_config.json`
 2. Post formatted summary (strip `_comment` keys):
 ```
 ⚙️ **当前求职配置**
@@ -161,7 +166,7 @@ Cancel schedule: `(crontab -l 2>/dev/null | grep -v "job-workflow/run.sh") | cro
 
 Implementation:
 ```bash
-cd ~/Projects/job-workflow && /opt/homebrew/Caskroom/miniconda/base/bin/python3 -c "
+cd ~/Projects/job-workflow-oss && /opt/homebrew/Caskroom/miniconda/base/bin/python3 -c "
 import sys; sys.path.insert(0,'src'); sys.path.insert(0,'.')
 from dotenv import load_dotenv; load_dotenv('.env')
 from playwright.sync_api import sync_playwright
@@ -173,7 +178,6 @@ from datetime import date
 import re, json
 
 url = '{url}'
-# scrape JD
 with sync_playwright() as p:
     b = p.chromium.launch(headless=True)
     pg = b.new_page()
@@ -192,14 +196,14 @@ out = Path('resume/output') / date.today().isoformat() / re.sub(r'[^a-zA-Z0-9_-]
 out.mkdir(parents=True, exist_ok=True)
 html = tailor_resume(job, out)
 cl = generate_cover_letter(job, out)
-pdf = html_to_pdf(html, f'{Your Name}-Resume-{company}') if html else None
+pdf = html_to_pdf(html, f'Resume-{company}') if html else None
 print(json.dumps({'html':str(html),'pdf':str(pdf),'cl':str(cl.get(\"cover_letter\")),'why':str(cl.get(\"why_company\"))}))
 "
 ```
 
 ### `job open`
 ```bash
-open ~/Projects/job-workflow/resume/output/$(date +%Y-%m-%d) 2>/dev/null || open ~/Projects/job-workflow/resume/output/
+open ~/Projects/job-workflow-oss/resume/output/$(date +%Y-%m-%d) 2>/dev/null || open ~/Projects/job-workflow-oss/resume/output/
 ```
 Confirm: "📁 已打开今天的输出文件夹"
 
@@ -207,7 +211,7 @@ Confirm: "📁 已打开今天的输出文件夹"
 1. Confirm with user first: "⚠️ 这会清空已搜索记录，下次会重新搜所有职位。确认？"
 2. On confirm:
 ```bash
-echo '{"seen_ids":[],"last_updated":null}' > ~/Projects/job-workflow/data/seen_jobs.json
+echo '{"seen_ids":[],"last_updated":null}' > ~/Projects/job-workflow-oss/data/seen_jobs.json
 ```
 3. Confirm: "✅ 已重置，下次搜索将从头开始"
 
@@ -215,7 +219,7 @@ echo '{"seen_ids":[],"last_updated":null}' > ~/Projects/job-workflow/data/seen_j
 
 ## Error handling
 - **Scrape fails / 0 jobs**: friendly message, suggest retry
-- **Non-zero exit**: read last 20 lines of `~/Projects/job-workflow/logs/workflow.log`
+- **Non-zero exit**: read last 20 lines of `~/Projects/job-workflow-oss/logs/workflow.log`
 - **Run timeout >20 min**: post warning with log tail
 - **Schedule parse error**: ask user for HH:MM format
 - **keyword not found in remove**: show current list

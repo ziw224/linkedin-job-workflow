@@ -30,7 +30,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 import json as _json
 from datetime import date as _date
-from config.settings import OUTPUT_DIR, SEEN_JOBS_FILE, TARGET_SDE_JOBS, TARGET_AI_JOBS, JOB_WORKERS, MAX_DAYS_OLD
+from config.settings import OUTPUT_DIR, SEEN_JOBS_FILE, TARGET_SDE_JOBS, TARGET_AI_JOBS, JOB_WORKERS, MAX_DAYS_OLD, BASE_RESUME_HTML
 
 # Load candidate profile for PDF naming
 _profile_path = PROJECT_ROOT / "config" / "candidate_profile.json"
@@ -120,6 +120,25 @@ def run():
     logger.info(f"Target: {TARGET_SDE_JOBS} SDE + {TARGET_AI_JOBS} AI/ML jobs")
     logger.info(f"Workers: {JOB_WORKERS} | Max age: {MAX_DAYS_OLD}d")
     logger.info("=" * 60)
+
+    # ── Pre-flight: verify resume file exists and is personalised ─────────────
+    if not BASE_RESUME_HTML.exists():
+        msg = (
+            f"❌ Resume file not found: {BASE_RESUME_HTML}\n"
+            f"Set RESUME_HTML_PATH in .env to point to your resume, or add it to resume/base_resume.html"
+        )
+        logger.error(msg)
+        from progress_notifier import _post
+        _post(f"⚠️ **Job Hunt aborted** — resume file missing.\n`{BASE_RESUME_HTML}`\nSet `RESUME_HTML_PATH` in `.env`.")
+        return
+
+    resume_content = BASE_RESUME_HTML.read_text(encoding="utf-8")
+    if "yourhandle" in resume_content or "Alex Chen" in resume_content:
+        msg = "❌ base_resume.html still contains placeholder content. Fill in your real resume first."
+        logger.error(msg)
+        from progress_notifier import _post
+        _post("⚠️ **Job Hunt aborted** — resume still has placeholder content. Update your resume HTML first.")
+        return
 
     notify_started()  # Discord: "🚀 Job Hunt starting..."
 
