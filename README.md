@@ -152,9 +152,9 @@ The `main` branch ships an **[OpenClaw](https://openclaw.ai) skill** so your AI 
 
 ### Setup
 
-**1.** Copy the skill into your OpenClaw workspace:
+**1.** Copy the skill to the shared skills directory (works for all agents, all workspaces):
 ```bash
-cp -r skills/job-hunt ~/.openclaw/workspace-main/skills/
+mkdir -p ~/.openclaw/skills && cp -r skills/job-hunt ~/.openclaw/skills/
 ```
 
 **2.** Restart OpenClaw:
@@ -162,7 +162,12 @@ cp -r skills/job-hunt ~/.openclaw/workspace-main/skills/
 openclaw gateway restart
 ```
 
-**3.** That's it — talk to your assistant and it handles the rest.
+**3.** Verify it loaded:
+```bash
+openclaw skills info job-hunt
+```
+
+**4.** That's it — talk to your assistant and it handles the rest.
 
 > 📖 Full setup (Python, Claude CLI, config files): see [SETUP.md](SETUP.md)
 
@@ -262,7 +267,7 @@ linkedin-job-workflow/
 │   └── run_one.py            # Quick single-job test
 ├── skills/
 │   └── job-hunt/
-│       └── SKILL.md          # OpenClaw skill (copy to ~/.openclaw/workspace-main/skills/)
+│       └── SKILL.md          # OpenClaw skill (copy to ~/.openclaw/skills/)
 ├── config/
 │   ├── search_config.json                # ✏️ Edit to change search behavior
 │   ├── candidate_profile.example.json   # Template — copy to candidate_profile.json
