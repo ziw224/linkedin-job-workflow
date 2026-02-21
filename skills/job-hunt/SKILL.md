@@ -118,7 +118,34 @@ Run when a new user's `ready: false`. Walk them through setup interactively.
      "bio": "..."
    }
    ```
-5. Confirm: "✅ 注册完成！现在可以用 `job run` 开始投简历了 🚀"
+5. Ask for their Discord notification webhook URL (optional):
+   ```
+   最后一步（可选）：请提供你的 Discord Webhook URL，用于把求职结果直接发到你的频道。
+   在 Discord 频道设置 → 整合 → Webhooks → 新建 Webhook 里创建。
+   没有的话直接跳过，会用全局默认 webhook。
+   ```
+   If provided, store in DB:
+   ```bash
+   cd ~/Projects/job-workflow-oss && /opt/homebrew/Caskroom/miniconda/base/bin/python3 -c "
+   import sys; sys.path.insert(0, 'src')
+   from dotenv import load_dotenv; load_dotenv('.env')
+   import db
+   db.upsert_user('{SENDER_ID}', notify_webhook_url='{WEBHOOK_URL}')
+   print('OK')
+   "
+   ```
+6. Save user to DB (upsert profile):
+   ```bash
+   cd ~/Projects/job-workflow-oss && /opt/homebrew/Caskroom/miniconda/base/bin/python3 -c "
+   import sys, json; sys.path.insert(0, 'src')
+   from dotenv import load_dotenv; load_dotenv('.env')
+   import db
+   profile = json.load(open('config/users/{SENDER_ID}/profile.json'))
+   db.upsert_user('{SENDER_ID}', **profile)
+   print('DB synced')
+   "
+   ```
+7. Confirm: "✅ 注册完成！现在可以用 `job run` 开始投简历了 🚀"
 
 ---
 

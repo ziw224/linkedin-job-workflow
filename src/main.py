@@ -150,16 +150,16 @@ def run(user_id: str | None = None):
         "pdf_prefix":     profile.get("resume_pdf_prefix", "Resume"),
     }
 
-    # ── Per-user notify channel ────────────────────────────────────────────────
-    notify_channel_id: str | None = None
+    # ── Per-user notify webhook ────────────────────────────────────────────────
+    notify_webhook_url: str | None = None
     if _USE_DB and user_id:
         try:
             user_row = _db_mod.get_user(user_id)
             if user_row:
-                notify_channel_id = user_row.get("notify_channel_id") or None
+                notify_webhook_url = user_row.get("notify_webhook_url") or None
         except Exception as e:
-            logger.warning(f"DB get_user for notify_channel_id failed: {e}")
-    set_notify_target(channel_id=notify_channel_id)
+            logger.warning(f"DB get_user for notify_webhook_url failed: {e}")
+    set_notify_target(webhook_url=notify_webhook_url)
 
     # ── Per-user search config ─────────────────────────────────────────────────
     user_search_cfg: dict | None = None
@@ -216,7 +216,7 @@ def run(user_id: str | None = None):
 
     if not selected:
         logger.info("No new jobs found today.")
-        send_discord_report([], channel_id=notify_channel_id)
+        send_discord_report([], webhook_url=notify_webhook_url)
         if _USE_DB and user_id:
             try:
                 _db_mod.finish_run(run_id, int((time.time()-t_start)*1000), "done", 0, 0)
@@ -283,7 +283,7 @@ def run(user_id: str | None = None):
         logger.info(f"Saved {len(seen)} seen job IDs to file")
 
     notify_finished(results, elapsed)
-    send_discord_report(results, channel_id=notify_channel_id)
+    send_discord_report(results, webhook_url=notify_webhook_url)
 
     logger.info(f"\n✅ Done in {elapsed//60}m {elapsed%60}s — {ok}/{len(results)} jobs ready")
     logger.info(f"   Output: {today_dir}")

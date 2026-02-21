@@ -1,10 +1,10 @@
 """
-src/notifier.py – Send job-hunt summary to Discord via webhook or bot API.
+src/notifier.py – Send job-hunt summary to Discord via webhook.
 Handles Discord's 2000-char message limit by splitting into multiple posts.
 
 Routing priority:
-  1. channel_id + DISCORD_BOT_TOKEN  → Discord REST API (per-user channel)
-  2. DISCORD_WEBHOOK_URL              → webhook (global fallback)
+  1. webhook_url argument (per-user webhook from DB)
+  2. DISCORD_WEBHOOK_URL env var (global fallback)
 """
 import logging
 import os
@@ -28,46 +28,14 @@ def _post_webhook(webhook_url: str, content: str) -> None:
         logger.error(f"Webhook failed: {e}")
 
 
-def _post_channel(channel_id: str, bot_token: str, content: str) -> None:
-    """POST a single message to a Discord channel via bot API."""
-    try:
-        import requests
-        resp = requests.post(
-            f"https://discord.com/api/v10/channels/{channel_id}/messages",
-            headers={
-                "Authorization": f"Bot {bot_token}",
-                "Content-Type": "application/json",
-            },
-            json={"content": content},
-            timeout=15,
-        )
-        if resp.status_code in (200, 201):
-            logger.info(f"Discord channel {channel_id} message sent ({len(content)} chars).")
-        else:
-            logger.warning(f"Channel API returned {resp.status_code}: {resp.text[:200]}")
-    except Exception as e:
-        logger.error(f"Channel API post failed: {e}")
+def _resolve_webhook(webhook_url: str | None = None) -> str:
+    """Return the best available webhook URL."""
+    return webhook_url or os.getenv("DISCORD_WEBHOOK_URL", "")
 
 
-def _make_poster(channel_id: str | None = None):
+def _send_chunked(webhook_url: str, lines: list[str]) -> None:
     """
-    Return a callable that posts a single message string.
-    Picks the best available transport automatically.
-    """
-    bot_token   = os.getenv("DISCORD_BOT_TOKEN", "")
-    webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "")
-
-    if channel_id and bot_token:
-        return lambda content: _post_channel(channel_id, bot_token, content)
-    if webhook_url:
-        return lambda content: _post_webhook(webhook_url, content)
-    logger.error("No Discord transport configured (set DISCORD_BOT_TOKEN+channel or DISCORD_WEBHOOK_URL).")
-    return lambda content: None
-
-
-def _send_chunked(post_fn, lines: list[str]) -> None:
-    """
-    Join lines and send via post_fn, splitting on newlines if > DISCORD_LIMIT chars.
+    Join lines and send to Discord, splitting on newlines if > DISCORD_LIMIT chars.
     Never splits a single line mid-way; sends each oversized line as its own message.
     """
     chunk: list[str] = []
@@ -76,7 +44,7 @@ def _send_chunked(post_fn, lines: list[str]) -> None:
     def flush():
         nonlocal chunk, chunk_len
         if chunk:
-            post_fn("\n".join(chunk))
+            _post_webhook(webhook_url, "\n".join(chunk))
         chunk = []
         chunk_len = 0
 
@@ -85,7 +53,7 @@ def _send_chunked(post_fn, lines: list[str]) -> None:
         if chunk_len + line_len > DISCORD_LIMIT:
             flush()
         if line_len > DISCORD_LIMIT:
-            post_fn(line[:DISCORD_LIMIT])
+            _post_webhook(webhook_url, line[:DISCORD_LIMIT])
             continue
         chunk.append(line)
         chunk_len += line_len
@@ -93,24 +61,27 @@ def _send_chunked(post_fn, lines: list[str]) -> None:
     flush()
 
 
-def send_discord_report(results: list[dict], channel_id: str | None = None) -> None:
+def send_discord_report(results: list[dict], webhook_url: str | None = None) -> None:
     """
     Send a formatted (chunked) job-hunt report.
 
     Args:
-        results:    list of dicts with keys job, html_path, pdf_path,
-                    cover_letter, why_company, success.
-        channel_id: Discord channel ID for bot-API routing.
-                    Falls back to DISCORD_WEBHOOK_URL if not set or no bot token.
+        results:     list of dicts with keys job, html_path, pdf_path,
+                     cover_letter, why_company, success.
+        webhook_url: per-user webhook URL from DB. Falls back to DISCORD_WEBHOOK_URL env var.
     """
-    post_fn = _make_poster(channel_id)
+    url = _resolve_webhook(webhook_url)
+    if not url:
+        logger.error("No Discord webhook configured (set DISCORD_WEBHOOK_URL or per-user webhook).")
+        return
 
     today  = date.today().strftime("%B %d, %Y")
     ok     = [r for r in results if r["success"]]
     failed = [r for r in results if not r["success"]]
 
     if not results:
-        post_fn(
+        _post_webhook(
+            url,
             f"🔍 **Daily Job Hunt** — {today}\nNo new jobs found today. Checking again tomorrow!"
         )
         return
@@ -133,4 +104,4 @@ def send_discord_report(results: list[dict], channel_id: str | None = None) -> N
             "",
         ]
 
-    _send_chunked(post_fn, lines)
+    _send_chunked(url, lines)

@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
     portfolio       VARCHAR(255),
     bio             TEXT,
     resume_pdf_prefix VARCHAR(255) DEFAULT 'Resume',
-    notify_channel_id VARCHAR(20),          -- Discord channel to send reports to
+    notify_channel_id VARCHAR(20),          -- Discord channel to send reports to (reserved)
+    notify_webhook_url VARCHAR(500),        -- Per-user Discord webhook URL (overrides global DISCORD_WEBHOOK_URL)
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

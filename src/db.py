@@ -45,6 +45,7 @@ def _init_sqlite(conn: sqlite3.Connection) -> None:
             bio               TEXT,
             resume_pdf_prefix TEXT DEFAULT 'Resume',
             notify_channel_id TEXT,
+            notify_webhook_url TEXT,
             created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -103,6 +104,15 @@ def _init_sqlite(conn: sqlite3.Connection) -> None:
         );
     """)
     conn.commit()
+    # Migrate existing DBs: add columns that may not exist yet
+    for col, definition in [
+        ("notify_webhook_url", "TEXT"),
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
 
 @contextmanager
@@ -181,7 +191,7 @@ def get_user(discord_id: str) -> dict | None:
 
 def upsert_user(discord_id: str, **fields) -> None:
     allowed = {"name", "email", "linkedin", "portfolio", "bio",
-               "resume_pdf_prefix", "notify_channel_id"}
+               "resume_pdf_prefix", "notify_channel_id", "notify_webhook_url"}
     data = {k: v for k, v in fields.items() if k in allowed and v is not None}
     if not data:
         return

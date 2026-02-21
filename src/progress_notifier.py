@@ -1,18 +1,18 @@
 """
 src/progress_notifier.py — Send real-time progress updates to Discord during a run.
 
-Routing priority (same as notifier.py):
-  1. channel_id + DISCORD_BOT_TOKEN  → Discord REST API (per-user channel)
-  2. DISCORD_WEBHOOK_URL              → webhook (global fallback)
+Routing priority:
+  1. Per-run webhook set via set_notify_target(webhook_url=...)
+  2. DISCORD_WEBHOOK_URL env var (global fallback)
 
-Call set_notify_target(channel_id=...) at the start of main.run() to route
-all notifications for that run to the correct Discord channel.
+Call set_notify_target(webhook_url=...) at the start of main.run() to route
+all progress notifications for that run to the correct user's Discord channel.
 
 Stages:
   started    → "🚀 Job hunt started — scraping LinkedIn..."
   scraped    → "📡 Scraped N jobs, starting tailoring..."
   job_done   → (accumulated, sent in batches)
-  finished   → final summary embed
+  finished   → final summary
 
 Fails silently — never disrupts the main workflow.
 """
@@ -29,49 +29,35 @@ logger = logging.getLogger(__name__)
 
 BATCH_INTERVAL = 60  # seconds between batch job-done updates
 
-# ── Per-run notify target (set by main.py before each run) ────────────────────
-_notify_channel_id: str = ""
+# ── Per-run notify target ─────────────────────────────────────────────────────
+_notify_webhook_url: str = ""
 
 
-def set_notify_target(channel_id: str | None = None) -> None:
+def set_notify_target(webhook_url: str | None = None) -> None:
     """
-    Configure the Discord channel for this run.
-    Call this at the top of main.run() before any notify_* calls.
+    Configure the Discord webhook for this run.
+    Call at the top of main.run() before any notify_* calls.
+    Falls back to DISCORD_WEBHOOK_URL env var if not set.
     """
-    global _notify_channel_id
-    _notify_channel_id = channel_id or ""
-    if _notify_channel_id:
-        logger.info(f"[progress_notifier] routing to channel {_notify_channel_id}")
-    else:
-        logger.info("[progress_notifier] routing via webhook (no channel_id set)")
+    global _notify_webhook_url
+    _notify_webhook_url = webhook_url or ""
+    src = f"per-user webhook (...{webhook_url[-20:]})" if webhook_url else "env DISCORD_WEBHOOK_URL"
+    logger.info(f"[progress_notifier] routing via {src}")
 
 
-def _post(content: str, embeds: Optional[list] = None) -> None:
-    """Fire-and-forget Discord POST. Never raises."""
-    bot_token   = os.getenv("DISCORD_BOT_TOKEN", "")
-    webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "")
+def _effective_webhook() -> str:
+    """Return the active webhook URL (per-run or global fallback)."""
+    return _notify_webhook_url or os.getenv("DISCORD_WEBHOOK_URL", "")
 
+
+def _post(content: str) -> None:
+    """Fire-and-forget webhook POST. Never raises."""
+    url = _effective_webhook()
+    if not url:
+        return
     try:
         import requests
-        payload: dict = {}
-        if content:
-            payload["content"] = content
-        if embeds:
-            payload["embeds"] = embeds
-
-        if _notify_channel_id and bot_token:
-            requests.post(
-                f"https://discord.com/api/v10/channels/{_notify_channel_id}/messages",
-                headers={
-                    "Authorization": f"Bot {bot_token}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-                timeout=10,
-            )
-        elif webhook_url:
-            requests.post(webhook_url, json=payload, timeout=10)
-        # else: silently skip (no transport configured)
+        requests.post(url, json={"content": content}, timeout=10)
     except Exception as e:
         logger.debug(f"[progress_notifier] post failed: {e}")
 
