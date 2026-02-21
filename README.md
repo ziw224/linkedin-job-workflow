@@ -121,6 +121,63 @@ Phase 3 — Serial (~5 sec)
 
 ---
 
+## 🤖 Use as an MCP Server
+
+[MCP (Model Context Protocol)](https://modelcontextprotocol.io) lets AI assistants like **Claude Desktop** or **Cursor** call your workflow as tools — just describe what you want in natural language.
+
+### Available tools
+
+| Tool | What it does |
+|---|---|
+| `run_workflow` | Full pipeline: scrape → tailor → PDF → Discord report |
+| `scrape_jobs` | Preview today's LinkedIn openings (no Claude calls, no changes) |
+| `tailor_job` | Tailor resume for one job (pass a URL or paste the JD) |
+| `get_status` | See today's output files and recent logs |
+| `get_config` | View current search keywords and locations |
+
+### Setup (Claude Desktop)
+
+**1.** Install dependencies and make sure `candidate_profile.json` is filled in.
+
+**2.** Find your absolute Python path:
+```bash
+which python3
+```
+
+**3.** Open (or create) your Claude Desktop config file:
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+**4.** Add the `job-hunt` server (see `mcp_config_example.json` for the full template):
+```json
+{
+  "mcpServers": {
+    "job-hunt": {
+      "command": "/your/python3/path",
+      "args": ["/absolute/path/to/job-workflow/src/mcp_server.py"],
+      "env": {
+        "DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/..."
+      }
+    }
+  }
+}
+```
+
+**5.** Restart Claude Desktop. You'll see 🔨 **job-hunt** in the tool bar.
+
+### Example prompts
+
+```
+"Run today's job hunt pipeline"
+"What new jobs are on LinkedIn today?"
+"Tailor my resume for this job: [paste LinkedIn URL]"
+"Tailor my resume for this JD: [paste job description]"
+"How did today's job hunt go?"
+"Show me my current search config"
+```
+
+---
+
 ## 🚀 Quick Start
 
 > 📖 For the full step-by-step guide, see [SETUP.md](SETUP.md)
