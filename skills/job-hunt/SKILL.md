@@ -14,6 +14,15 @@ description: "Automated LinkedIn job-hunt assistant. Triggered by 'job search', 
 
 ---
 
+## ⛔ CRITICAL RULES — Read Before Anything Else
+
+1. **NEVER ask for LinkedIn credentials (email/password).** The scraper uses Playwright to scrape LinkedIn's PUBLIC search pages. No login required. No cookies. No credentials. Ever.
+2. **NEVER create a separate project folder per user** (e.g. `~/Projects/job-workflow-lisa/`). All users share one project. User data is isolated in `config/users/{discord_id}/` only.
+3. **NEVER ask users to DM credentials of any kind.** The only things you need from a user are: resume HTML file + name/email/bio text.
+4. **NEVER invent setup steps** that aren't in this SKILL.md.
+
+---
+
 ## Multi-User Support
 
 Every command is **user-scoped**. Before running any command:
@@ -71,13 +80,17 @@ Restore to 0 after scrape completes (always, even on error).
 ## Command Details
 
 ### `job setup` (first-time onboarding)
-Run when a new user's `ready: false`. Walk them through setup interactively:
+Run when a new user's `ready: false`. Walk them through setup interactively.
+
+> ⚠️ You only need TWO things: resume HTML + profile text. Do NOT ask for LinkedIn login, passwords, or any credentials.
 
 1. Post:
    ```
    👋 还没有注册简历！需要以下两样东西：
-   1️⃣ 发送你的简历 HTML 文件（直接上传）
-   2️⃣ 填写个人信息（姓名、邮箱、LinkedIn、个人简介）
+   1️⃣ 发送你的简历 HTML 文件（直接上传到这个频道）
+   2️⃣ 填写个人信息（姓名、邮箱、LinkedIn URL、个人简介）
+
+   ⚠️ 不需要 LinkedIn 账号密码，不需要任何登录信息。
    ```
 2. Wait for user to upload their resume HTML. Save the attachment content to:
    ```bash
