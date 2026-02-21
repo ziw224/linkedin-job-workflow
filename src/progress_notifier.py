@@ -1,13 +1,19 @@
 """
 src/progress_notifier.py — Send real-time progress updates to Discord during a run.
 
+Routing priority (same as notifier.py):
+  1. channel_id + DISCORD_BOT_TOKEN  → Discord REST API (per-user channel)
+  2. DISCORD_WEBHOOK_URL              → webhook (global fallback)
+
+Call set_notify_target(channel_id=...) at the start of main.run() to route
+all notifications for that run to the correct Discord channel.
+
 Stages:
   started    → "🚀 Job hunt started — scraping LinkedIn..."
   scraped    → "📡 Scraped N jobs, starting tailoring..."
   job_done   → (accumulated, sent in batches)
   finished   → final summary embed
 
-Uses DISCORD_WEBHOOK_URL (same as notifier.py).
 Fails silently — never disrupts the main workflow.
 """
 from __future__ import annotations
@@ -21,14 +27,30 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-WEBHOOK_URL: str = os.getenv("DISCORD_WEBHOOK_URL", "")
 BATCH_INTERVAL = 60  # seconds between batch job-done updates
+
+# ── Per-run notify target (set by main.py before each run) ────────────────────
+_notify_channel_id: str = ""
+
+
+def set_notify_target(channel_id: str | None = None) -> None:
+    """
+    Configure the Discord channel for this run.
+    Call this at the top of main.run() before any notify_* calls.
+    """
+    global _notify_channel_id
+    _notify_channel_id = channel_id or ""
+    if _notify_channel_id:
+        logger.info(f"[progress_notifier] routing to channel {_notify_channel_id}")
+    else:
+        logger.info("[progress_notifier] routing via webhook (no channel_id set)")
 
 
 def _post(content: str, embeds: Optional[list] = None) -> None:
-    """Fire-and-forget webhook POST. Never raises."""
-    if not WEBHOOK_URL:
-        return
+    """Fire-and-forget Discord POST. Never raises."""
+    bot_token   = os.getenv("DISCORD_BOT_TOKEN", "")
+    webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "")
+
     try:
         import requests
         payload: dict = {}
@@ -36,9 +58,22 @@ def _post(content: str, embeds: Optional[list] = None) -> None:
             payload["content"] = content
         if embeds:
             payload["embeds"] = embeds
-        requests.post(WEBHOOK_URL, json=payload, timeout=10)
+
+        if _notify_channel_id and bot_token:
+            requests.post(
+                f"https://discord.com/api/v10/channels/{_notify_channel_id}/messages",
+                headers={
+                    "Authorization": f"Bot {bot_token}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=10,
+            )
+        elif webhook_url:
+            requests.post(webhook_url, json=payload, timeout=10)
+        # else: silently skip (no transport configured)
     except Exception as e:
-        logger.debug(f"[progress_notifier] webhook failed: {e}")
+        logger.debug(f"[progress_notifier] post failed: {e}")
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -71,7 +106,6 @@ class BatchProgressReporter:
         self._lock = threading.Lock()
         self._last_sent = time.time()
         self._closed = False
-        # Start background flush thread
         self._thread = threading.Thread(target=self._flush_loop, daemon=True)
         self._thread.start()
 

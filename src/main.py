@@ -44,7 +44,7 @@ from resume_tailor import tailor_resume
 from pdf_generator import html_to_pdf
 from cover_letter import generate_cover_letter
 from notifier import send_discord_report
-from progress_notifier import notify_started, notify_scraped, BatchProgressReporter, notify_finished
+from progress_notifier import notify_started, notify_scraped, BatchProgressReporter, notify_finished, set_notify_target
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 LOG_DIR = PROJECT_ROOT / "logs"
@@ -150,6 +150,40 @@ def run(user_id: str | None = None):
         "pdf_prefix":     profile.get("resume_pdf_prefix", "Resume"),
     }
 
+    # ── Per-user notify channel ────────────────────────────────────────────────
+    notify_channel_id: str | None = None
+    if _USE_DB and user_id:
+        try:
+            user_row = _db_mod.get_user(user_id)
+            if user_row:
+                notify_channel_id = user_row.get("notify_channel_id") or None
+        except Exception as e:
+            logger.warning(f"DB get_user for notify_channel_id failed: {e}")
+    set_notify_target(channel_id=notify_channel_id)
+
+    # ── Per-user search config ─────────────────────────────────────────────────
+    user_search_cfg: dict | None = None
+    if _USE_DB and user_id:
+        try:
+            user_search_cfg = _db_mod.get_user_search_config(user_id)
+            if user_search_cfg:
+                cats = list(user_search_cfg.keys())
+                logger.info(f"Loaded per-user search config from DB: categories={cats}")
+        except Exception as e:
+            logger.warning(f"DB get_user_search_config failed, using global defaults: {e}")
+
+    _sde_cfg = (user_search_cfg or {}).get("sde", {})
+    _ai_cfg  = (user_search_cfg or {}).get("ai",  {})
+    scrape_kwargs: dict = {}
+    if _sde_cfg.get("keywords"):
+        scrape_kwargs["sde_keywords"] = _sde_cfg["keywords"]
+    if _ai_cfg.get("keywords"):
+        scrape_kwargs["ai_keywords"] = _ai_cfg["keywords"]
+    if _sde_cfg.get("target_count"):
+        scrape_kwargs["target_sde"] = _sde_cfg["target_count"]
+    if _ai_cfg.get("target_count"):
+        scrape_kwargs["target_ai"] = _ai_cfg["target_count"]
+
     notify_started()
 
     # Track run in DB if available
@@ -176,13 +210,13 @@ def run(user_id: str | None = None):
     else:
         seen_set = None  # get_new_jobs will load from SEEN_JOBS_FILE
 
-    selected, seen = get_new_jobs(seen=seen_set)
+    selected, seen = get_new_jobs(seen=seen_set, **scrape_kwargs)
 
     notify_scraped(len(selected))
 
     if not selected:
         logger.info("No new jobs found today.")
-        send_discord_report([])
+        send_discord_report([], channel_id=notify_channel_id)
         if _USE_DB and user_id:
             try:
                 _db_mod.finish_run(run_id, int((time.time()-t_start)*1000), "done", 0, 0)
@@ -249,7 +283,7 @@ def run(user_id: str | None = None):
         logger.info(f"Saved {len(seen)} seen job IDs to file")
 
     notify_finished(results, elapsed)
-    send_discord_report(results)
+    send_discord_report(results, channel_id=notify_channel_id)
 
     logger.info(f"\n✅ Done in {elapsed//60}m {elapsed%60}s — {ok}/{len(results)} jobs ready")
     logger.info(f"   Output: {today_dir}")

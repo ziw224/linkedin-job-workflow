@@ -196,13 +196,24 @@ def upsert_user(discord_id: str, **fields) -> None:
             with conn.cursor() as cur:
                 cur.execute(sql, [discord_id] + list(data.values()))
         else:
-            cols = ", ".join(["discord_id"] + list(data.keys()))
-            placeholders = ", ".join(["?"] * (len(data) + 1))
-            updates = ", ".join(f"{k} = excluded.{k}" for k in data)
-            sql = (f"INSERT INTO users ({cols}) VALUES ({placeholders}) "
-                   f"ON CONFLICT(discord_id) DO UPDATE SET {updates}, "
-                   f"updated_at = CURRENT_TIMESTAMP")
-            conn.execute(sql, [discord_id] + list(data.values()))
+            # If user already exists, UPDATE only the provided columns.
+            # If user does not exist, INSERT requires 'name' (NOT NULL).
+            existing = conn.execute(
+                "SELECT 1 FROM users WHERE discord_id = ?", (discord_id,)
+            ).fetchone()
+            if existing:
+                set_clause = ", ".join(f"{k} = ?" for k in data)
+                sql = (f"UPDATE users SET {set_clause}, updated_at = CURRENT_TIMESTAMP "
+                       f"WHERE discord_id = ?")
+                conn.execute(sql, list(data.values()) + [discord_id])
+            else:
+                cols = ", ".join(["discord_id"] + list(data.keys()))
+                placeholders = ", ".join(["?"] * (len(data) + 1))
+                updates = ", ".join(f"{k} = excluded.{k}" for k in data)
+                sql = (f"INSERT INTO users ({cols}) VALUES ({placeholders}) "
+                       f"ON CONFLICT(discord_id) DO UPDATE SET {updates}, "
+                       f"updated_at = CURRENT_TIMESTAMP")
+                conn.execute(sql, [discord_id] + list(data.values()))
 
 
 def user_exists(discord_id: str) -> bool:

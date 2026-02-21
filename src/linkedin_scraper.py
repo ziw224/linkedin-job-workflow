@@ -86,14 +86,18 @@ def scrape_with_playwright(
     max_days_old: int | None = None,
     sde_exp_levels: list[int] | None = None,
     ai_exp_levels:  list[int] | None = None,
+    sde_keywords: list[str] | None = None,
+    ai_keywords:  list[str] | None = None,
 ) -> list[dict]:
     """
-    Two-phase scrape using per-category experience levels.
+    Two-phase scrape using per-category experience levels and keywords.
 
     Params override the defaults from search_config.json for fallback retries:
       max_days_old    – None means use config default
       sde_exp_levels  – None means use config default
       ai_exp_levels   – None means use config default
+      sde_keywords    – None means use config default
+      ai_keywords     – None means use config default
     """
     try:
         from playwright.sync_api import sync_playwright  # type: ignore
@@ -104,11 +108,13 @@ def scrape_with_playwright(
     effective_max_days  = MAX_DAYS_OLD if max_days_old is None else max_days_old
     effective_sde_exp   = SDE_EXPERIENCE_LEVELS if sde_exp_levels is None else sde_exp_levels
     effective_ai_exp    = AI_EXPERIENCE_LEVELS  if ai_exp_levels  is None else ai_exp_levels
+    effective_sde_kw    = SDE_KEYWORDS if sde_keywords is None else sde_keywords
+    effective_ai_kw     = AI_KEYWORDS  if ai_keywords  is None else ai_keywords
 
-    # Build search plan: (keyword, location, experience_levels)
+    # Build search plan: (keyword, location, experience_levels, category)
     search_plan = (
-        [(kw, loc, effective_sde_exp) for kw in SDE_KEYWORDS for loc in SEARCH_LOCATIONS] +
-        [(kw, loc, effective_ai_exp)  for kw in AI_KEYWORDS   for loc in SEARCH_LOCATIONS]
+        [(kw, loc, effective_sde_exp, "sde") for kw in effective_sde_kw for loc in SEARCH_LOCATIONS] +
+        [(kw, loc, effective_ai_exp,  "ai")  for kw in effective_ai_kw  for loc in SEARCH_LOCATIONS]
     )
 
     # ── Phase 1: collect metadata ──────────────────────────────────────────────
@@ -125,7 +131,7 @@ def scrape_with_playwright(
         )
         page = ctx.new_page()
 
-        for keyword, location, exp_levels in search_plan:
+        for keyword, location, exp_levels, category in search_plan:
             if len(candidates) >= MAX_JOBS_PER_RUN:
                 break
 
@@ -187,6 +193,7 @@ def scrape_with_playwright(
                         "location":    loc_str,
                         "url":         href.split("?")[0],
                         "keyword":     keyword,
+                        "category":    category,
                         "posted_date": posted_date,
                         "days_old":    days_old if days_old is not None else -1,
                     })
@@ -231,11 +238,15 @@ def scrape_with_playwright(
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _split_by_category(jobs: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Split jobs into (sde_jobs, ai_jobs) based on which keyword bucket they came from."""
+    """Split jobs into (sde_jobs, ai_jobs).
+    Uses the 'category' field written by scrape_with_playwright (preferred),
+    falls back to keyword-based detection for jobs scraped by older code.
+    """
     ai_kw_set = set(kw.lower() for kw in AI_KEYWORDS)
     sde, ai = [], []
     for j in jobs:
-        if j.get("keyword", "").lower() in ai_kw_set:
+        cat = j.get("category")
+        if cat == "ai" or (cat is None and j.get("keyword", "").lower() in ai_kw_set):
             ai.append(j)
         else:
             sde.append(j)
@@ -244,7 +255,13 @@ def _split_by_category(jobs: list[dict]) -> tuple[list[dict], list[dict]]:
 
 # ── Public Entry Point ─────────────────────────────────────────────────────────
 
-def get_new_jobs(seen: set[str] | None = None) -> tuple[list[dict], set[str]]:
+def get_new_jobs(
+    seen: set[str] | None = None,
+    sde_keywords: list[str] | None = None,
+    ai_keywords:  list[str] | None = None,
+    target_sde:   int | None = None,
+    target_ai:    int | None = None,
+) -> tuple[list[dict], set[str]]:
     """
     Return (new_jobs, updated_seen_set).
     Implements multi-stage fallback: if primary filters don't yield enough
@@ -252,34 +269,40 @@ def get_new_jobs(seen: set[str] | None = None) -> tuple[list[dict], set[str]]:
     search_config.json → fallback.stages.
 
     Args:
-        seen: pre-loaded seen job IDs (e.g. from DB). If None, loads from SEEN_JOBS_FILE.
+        seen:         pre-loaded seen job IDs (e.g. from DB). If None, loads from SEEN_JOBS_FILE.
+        sde_keywords: per-user SDE keywords override. None = use global defaults.
+        ai_keywords:  per-user AI keywords override. None = use global defaults.
+        target_sde:   per-user SDE target count override. None = use global default.
+        target_ai:    per-user AI target count override. None = use global default.
     """
     if seen is None:
         seen = _load_seen(SEEN_JOBS_FILE)
     logger.info(f"Already seen {len(seen)} jobs. Searching for new ones …")
 
+    _target_sde = target_sde if target_sde is not None else TARGET_SDE_JOBS
+    _target_ai  = target_ai  if target_ai  is not None else TARGET_AI_JOBS
+
     # ── Primary scrape ─────────────────────────────────────────────────────────
-    jobs     = scrape_with_playwright(seen)
+    jobs     = scrape_with_playwright(seen, sde_keywords=sde_keywords, ai_keywords=ai_keywords)
     sde, ai  = _split_by_category(jobs)
-    all_jobs = list(jobs)
 
     logger.info(
-        f"Primary: {len(sde)} SDE (need {TARGET_SDE_JOBS}) + "
-        f"{len(ai)} AI (need {TARGET_AI_JOBS})"
+        f"Primary: {len(sde)} SDE (need {_target_sde}) + "
+        f"{len(ai)} AI (need {_target_ai})"
     )
 
     # ── Fallback stages ────────────────────────────────────────────────────────
     for stage in FALLBACK_STAGES:
-        sde_short = max(0, TARGET_SDE_JOBS - len(sde))
-        ai_short  = max(0, TARGET_AI_JOBS  - len(ai))
+        sde_short = max(0, _target_sde - len(sde))
+        ai_short  = max(0, _target_ai  - len(ai))
 
         if sde_short == 0 and ai_short == 0:
             break  # targets met, no fallback needed
 
-        label          = stage.get("label", "fallback")
-        days           = stage.get("max_days_old", 0)
-        sde_exp        = stage.get("sde_experience_levels") or None
-        ai_exp         = stage.get("ai_experience_levels")  or None
+        label   = stage.get("label", "fallback")
+        days    = stage.get("max_days_old", 0)
+        sde_exp = stage.get("sde_experience_levels") or None
+        ai_exp  = stage.get("ai_experience_levels")  or None
 
         logger.warning(
             f"⚠️  Fallback [{label}]: short {sde_short} SDE + {ai_short} AI — "
@@ -287,19 +310,21 @@ def get_new_jobs(seen: set[str] | None = None) -> tuple[list[dict], set[str]]:
             f"sde_exp={sde_exp or 'default'}, ai_exp={ai_exp or 'default'})"
         )
 
-        more           = scrape_with_playwright(seen, max_days_old=days, sde_exp_levels=sde_exp, ai_exp_levels=ai_exp)
+        more = scrape_with_playwright(
+            seen, max_days_old=days, sde_exp_levels=sde_exp, ai_exp_levels=ai_exp,
+            sde_keywords=sde_keywords, ai_keywords=ai_keywords,
+        )
         more_sde, more_ai = _split_by_category(more)
 
         # Only take what we still need
-        sde     += more_sde[:sde_short]
-        ai      += more_ai[:ai_short]
-        all_jobs = sde + ai
+        sde += more_sde[:sde_short]
+        ai  += more_ai[:ai_short]
 
         logger.info(f"  After [{label}]: {len(sde)} SDE + {len(ai)} AI")
 
     # ── Final summary ──────────────────────────────────────────────────────────
-    sde_short = max(0, TARGET_SDE_JOBS - len(sde))
-    ai_short  = max(0, TARGET_AI_JOBS  - len(ai))
+    sde_short = max(0, _target_sde - len(sde))
+    ai_short  = max(0, _target_ai  - len(ai))
     if sde_short or ai_short:
         logger.warning(
             f"⚠️  All fallback stages exhausted — "
@@ -307,6 +332,6 @@ def get_new_jobs(seen: set[str] | None = None) -> tuple[list[dict], set[str]]:
             f"(short {sde_short} SDE + {ai_short} AI)"
         )
 
-    final = sde[:TARGET_SDE_JOBS] + ai[:TARGET_AI_JOBS]
-    logger.info(f"Total selected: {len(final)} jobs ({len(sde[:TARGET_SDE_JOBS])} SDE + {len(ai[:TARGET_AI_JOBS])} AI)")
+    final = sde[:_target_sde] + ai[:_target_ai]
+    logger.info(f"Total selected: {len(final)} jobs ({len(sde[:_target_sde])} SDE + {len(ai[:_target_ai])} AI)")
     return final, seen
