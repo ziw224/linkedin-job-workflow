@@ -1,0 +1,65 @@
+{
+  "_comment": "Edit this file to customize job search behavior. No code changes needed.",
+
+  "locations": [
+    "San Francisco, CA",
+    "Remote"
+  ],
+
+  "sort_by": "DD",
+  "_sort_by_comment": "DD = most recent first. R = most relevant.",
+
+  "max_days_old": 14,
+  "_max_days_old_comment": "Primary filter: skip jobs older than this many days. 0 = no limit.",
+
+  "max_candidates": 30,
+  "_max_candidates_comment": "Max job cards to collect per scrape attempt.",
+
+  "job_workers": 2,
+  "_job_workers_comment": "Parallel workers for resume/cover-letter generation. 2 is safe for Claude Max.",
+
+  "fallback": {
+    "_comment": "Triggered when primary scrape yields fewer jobs than target_count. Stages run in order until targets are met.",
+    "stages": [
+      {
+        "label": "Widen time window",
+        "max_days_old": 30
+      },
+      {
+        "label": "Widen time + experience level",
+        "max_days_old": 0,
+        "sde_experience_levels": [2, 3],
+        "ai_experience_levels": [2, 3, 4]
+      }
+    ]
+  },
+
+  "categories": {
+    "sde": {
+      "_comment": "Full Stack / Software Engineer roles",
+      "keywords": [
+        "Software Engineer",
+        "Full Stack Engineer",
+        "Full Stack Developer",
+        "Entry Level Software Engineer",
+        "Junior Software Engineer"
+      ],
+      "experience_levels": [2],
+      "_experience_levels_comment": "1=Internship 2=Entry 3=Associate 4=Mid-Senior",
+      "target_count": 5
+    },
+    "ai": {
+      "_comment": "AI / ML Engineer roles — broader filter since fewer entry-level AI jobs exist",
+      "keywords": [
+        "AI Engineer",
+        "ML Engineer",
+        "Machine Learning Engineer",
+        "AI Software Engineer",
+        "Applied ML Engineer"
+      ],
+      "experience_levels": [2, 3],
+      "_experience_levels_comment": "1=Internship 2=Entry 3=Associate 4=Mid-Senior",
+      "target_count": 5
+    }
+  }
+}

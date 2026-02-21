@@ -1,0 +1,32 @@
+# Secrets & personal config
+.env
+config/candidate_profile.json
+
+# Your resume HTML files (contain personal info)
+resume/base_resume.html
+resume/base_resume_ai.html
+
+# Generated output
+resume/output/
+
+# Job history (machine-specific)
+data/seen_jobs.json
+
+# Logs
+logs/*.log
+logs/cron.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# macOS
+.DS_Store
