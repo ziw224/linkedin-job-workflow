@@ -244,14 +244,18 @@ def _split_by_category(jobs: list[dict]) -> tuple[list[dict], list[dict]]:
 
 # ── Public Entry Point ─────────────────────────────────────────────────────────
 
-def get_new_jobs() -> tuple[list[dict], set[str]]:
+def get_new_jobs(seen: set[str] | None = None) -> tuple[list[dict], set[str]]:
     """
     Return (new_jobs, updated_seen_set).
     Implements multi-stage fallback: if primary filters don't yield enough
     SDE or AI jobs, retries with progressively relaxed settings from
     search_config.json → fallback.stages.
+
+    Args:
+        seen: pre-loaded seen job IDs (e.g. from DB). If None, loads from SEEN_JOBS_FILE.
     """
-    seen = _load_seen(SEEN_JOBS_FILE)
+    if seen is None:
+        seen = _load_seen(SEEN_JOBS_FILE)
     logger.info(f"Already seen {len(seen)} jobs. Searching for new ones …")
 
     # ── Primary scrape ─────────────────────────────────────────────────────────

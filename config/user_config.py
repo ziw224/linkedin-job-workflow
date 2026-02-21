@@ -13,11 +13,29 @@ legacy root-level config/candidate_profile.json + resume/base_resume.html.
 
 from __future__ import annotations
 import json
+import logging
 import os
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 ROOT = Path(__file__).parent.parent.resolve()
 USERS_DIR = ROOT / "config" / "users"
+
+
+def _db():
+    """Lazy import db module — returns None if unavailable."""
+    try:
+        import sys
+        if str(ROOT / "src") not in sys.path:
+            sys.path.insert(0, str(ROOT / "src"))
+        from db import db_available, get_user
+        if db_available():
+            import db as _db_mod
+            return _db_mod
+    except Exception:
+        pass
+    return None
 
 
 def get_user_dir(user_id: str | None) -> Path:
@@ -25,21 +43,32 @@ def get_user_dir(user_id: str | None) -> Path:
         d = USERS_DIR / str(user_id)
         d.mkdir(parents=True, exist_ok=True)
         return d
-    # Legacy single-user fallback
     return ROOT / "config"
 
 
 def get_user_profile(user_id: str | None) -> dict:
-    """Load candidate profile for the given user. Returns empty dict if missing."""
-    user_dir = get_user_dir(user_id)
+    """
+    Load candidate profile. Priority:
+      1. MySQL users table (if DB available)
+      2. config/users/{id}/profile.json
+      3. config/candidate_profile.json (legacy)
+    """
+    # 1. Try MySQL
+    if user_id:
+        db = _db()
+        if db:
+            row = db.get_user(user_id)
+            if row:
+                return {k: v for k, v in row.items()
+                        if k not in ("created_at", "updated_at") and v is not None}
 
-    # New multi-user path
+    # 2. JSON file fallback
+    user_dir = get_user_dir(user_id)
     profile_path = user_dir / "profile.json" if user_id else user_dir / "candidate_profile.json"
     if profile_path.exists():
         with open(profile_path) as f:
             return json.load(f)
 
-    # Fallback: root-level candidate_profile.json
     fallback = ROOT / "config" / "candidate_profile.json"
     if fallback.exists():
         with open(fallback) as f:

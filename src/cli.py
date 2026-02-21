@@ -91,28 +91,47 @@ def cmd_run():
 
 
 def cmd_status():
-    """Print today's output summary for a specific user."""
-    from config.user_config import get_user_output_dir
-
+    """Print today's output summary for a specific user (DB first, filesystem fallback)."""
     user_id = _parse_user_id()
     today = date.today().isoformat()
-    today_dir = get_user_output_dir(user_id) / today
-
     result = {"date": today, "user_id": user_id, "companies": [], "total": 0, "ok": 0}
 
-    if today_dir.exists():
-        for comp_dir in sorted(today_dir.iterdir()):
-            if not comp_dir.is_dir():
-                continue
-            files = list(comp_dir.iterdir())
-            has_pdf = any(f.suffix == ".pdf" for f in files)
-            result["companies"].append({
-                "name":    comp_dir.name,
-                "success": has_pdf,
-                "files":   [f.name for f in sorted(files)],
-            })
-        result["total"] = len(result["companies"])
-        result["ok"]    = sum(1 for c in result["companies"] if c["success"])
+    # Try DB first
+    db_used = False
+    try:
+        import db as _db_mod
+        if _db_mod.db_available() and user_id:
+            rows = _db_mod.get_today_results(user_id)
+            if rows is not None:
+                for row in rows:
+                    result["companies"].append({
+                        "name":    row.get("company", ""),
+                        "success": bool(row.get("success")),
+                        "title":   row.get("title", ""),
+                    })
+                result["total"] = len(result["companies"])
+                result["ok"]    = sum(1 for c in result["companies"] if c["success"])
+                db_used = True
+    except Exception:
+        pass
+
+    # Fallback: scan filesystem
+    if not db_used:
+        from config.user_config import get_user_output_dir
+        today_dir = get_user_output_dir(user_id) / today
+        if today_dir.exists():
+            for comp_dir in sorted(today_dir.iterdir()):
+                if not comp_dir.is_dir():
+                    continue
+                files = list(comp_dir.iterdir())
+                has_pdf = any(f.suffix == ".pdf" for f in files)
+                result["companies"].append({
+                    "name":    comp_dir.name,
+                    "success": has_pdf,
+                    "files":   [f.name for f in sorted(files)],
+                })
+            result["total"] = len(result["companies"])
+            result["ok"]    = sum(1 for c in result["companies"] if c["success"])
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

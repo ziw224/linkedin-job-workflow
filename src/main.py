@@ -33,6 +33,12 @@ from datetime import date as _date
 from config.settings import SEEN_JOBS_FILE, TARGET_SDE_JOBS, TARGET_AI_JOBS, JOB_WORKERS, MAX_DAYS_OLD, BASE_RESUME_HTML
 from config.user_config import get_user_output_dir, get_user_resume_path, get_resume_pdf_prefix, user_is_ready
 
+try:
+    import db as _db_mod
+    _USE_DB = _db_mod.db_available()
+except Exception:
+    _USE_DB = False
+
 from linkedin_scraper import get_new_jobs, _save_seen
 from resume_tailor import tailor_resume
 from pdf_generator import html_to_pdf
@@ -108,7 +114,9 @@ def process_job(job: dict, today_dir: Path, user_ctx: dict) -> dict:
 
 def run(user_id: str | None = None):
     import time
+    import uuid
     t_start = time.time()
+    run_id = str(uuid.uuid4())
 
     logger.info("=" * 60)
     logger.info(f"Daily Job-Hunt Workflow — starting (user={user_id or 'default'})")
@@ -144,18 +152,41 @@ def run(user_id: str | None = None):
 
     notify_started()
 
+    # Track run in DB if available
+    if _USE_DB and user_id:
+        try:
+            _db_mod.start_run(run_id, user_id)
+        except Exception as e:
+            logger.warning(f"DB start_run failed: {e}")
+
     today_dir = get_user_output_dir(user_id) / _date.today().isoformat()
     today_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Phase 1: Scrape (with automatic fallback) ──────────────────────────────
+    # ── Phase 1: Scrape ────────────────────────────────────────────────────────
     logger.info("\n📡 Phase 1: Scraping LinkedIn…")
-    selected, seen = get_new_jobs()   # already bucketed + fallback handled
 
-    notify_scraped(len(selected))  # Discord: "📋 Found N jobs..."
+    # Load per-user seen jobs from DB; fallback to global JSON file
+    if _USE_DB and user_id:
+        try:
+            seen_set = _db_mod.get_seen_job_ids(user_id)
+            logger.info(f"Loaded {len(seen_set)} seen job IDs from DB for user {user_id[:8]}")
+        except Exception as e:
+            logger.warning(f"DB get_seen_job_ids failed, falling back to file: {e}")
+            seen_set = None
+    else:
+        seen_set = None  # get_new_jobs will load from SEEN_JOBS_FILE
+
+    selected, seen = get_new_jobs(seen=seen_set)
+
+    notify_scraped(len(selected))
 
     if not selected:
         logger.info("No new jobs found today.")
         send_discord_report([])
+        if _USE_DB and user_id:
+            try:
+                _db_mod.finish_run(run_id, int((time.time()-t_start)*1000), "done", 0, 0)
+            except Exception: pass
         return
 
     logger.info(f"Proceeding with {len(selected)} jobs")
@@ -187,17 +218,39 @@ def run(user_id: str | None = None):
                 }
                 reporter.job_done(f"{job['title']} @ {job['company']}", False)
 
-    reporter.close()  # flush any remaining progress updates
+    reporter.close()
 
     # ── Phase 3: Persist + Notify ──────────────────────────────────────────────
-    _save_seen(SEEN_JOBS_FILE, seen)
-    logger.info(f"Saved {len(seen)} seen job IDs")
-
     elapsed = int(time.time() - t_start)
-    notify_finished(results, elapsed)  # Discord: "✅ Done in Xm Ys"
-    send_discord_report(results)        # Discord: full report
-
     ok = sum(r["success"] for r in results)
+
+    if _USE_DB and user_id:
+        try:
+            # Save per-user seen jobs to DB
+            new_job_ids = [r["job"]["job_id"] for r in results if r and r.get("job", {}).get("job_id")]
+            _db_mod.mark_jobs_seen(user_id, new_job_ids)
+            logger.info(f"Saved {len(new_job_ids)} seen job IDs to DB")
+            # Save individual results
+            for r in results:
+                if r:
+                    try:
+                        _db_mod.save_job_result(run_id, user_id, r)
+                    except Exception as e:
+                        logger.warning(f"DB save_job_result failed: {e}")
+            # Finish run record
+            status = "done" if not any(r and not r["success"] for r in results) else "done"
+            _db_mod.finish_run(run_id, elapsed * 1000, status, len(results), ok)
+        except Exception as e:
+            logger.warning(f"DB persist failed, falling back to file: {e}")
+            _save_seen(SEEN_JOBS_FILE, seen)
+    else:
+        # Fallback: save to global JSON file
+        _save_seen(SEEN_JOBS_FILE, seen)
+        logger.info(f"Saved {len(seen)} seen job IDs to file")
+
+    notify_finished(results, elapsed)
+    send_discord_report(results)
+
     logger.info(f"\n✅ Done in {elapsed//60}m {elapsed%60}s — {ok}/{len(results)} jobs ready")
     logger.info(f"   Output: {today_dir}")
 

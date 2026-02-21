@@ -2,3 +2,4 @@ playwright>=1.44.0
 python-dotenv>=1.0.0
 requests>=2.31.0
 mcp>=1.0.0
+pymysql>=1.1.0        # optional: MySQL multi-user support
