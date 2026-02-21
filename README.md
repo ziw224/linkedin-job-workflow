@@ -12,7 +12,7 @@ An end-to-end automated pipeline that scrapes LinkedIn, tailors your resume + co
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/ziw224/linkedin-job-workflow?style=flat&color=yellow)](https://github.com/ziw224/linkedin-job-workflow/stargazers)
 
-![Preview](resume/preview.png)
+![Preview](resume/demo.png)
 
 </div>
 
