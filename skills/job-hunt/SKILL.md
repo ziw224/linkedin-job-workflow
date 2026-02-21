@@ -14,10 +14,30 @@ description: "Automated LinkedIn job-hunt assistant. Triggered by 'job search', 
 
 ---
 
+## Multi-User Support
+
+Every command is **user-scoped**. Before running any command:
+
+1. **Get the sender's Discord user ID** from message metadata (e.g. `970771448320897095`)
+2. **Check if they're set up**:
+   ```bash
+   cd ~/Projects/job-workflow-oss && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py setup --user-id {SENDER_ID}
+   ```
+3. If `ready: false` → run **`job setup`** flow before anything else
+4. Pass `--user-id {SENDER_ID}` to all `run`, `status`, `tailor` commands
+
+Each user's data is isolated in `config/users/{discord_user_id}/`:
+- `profile.json` — name, email, linkedin, bio
+- `resume.html` — SDE resume
+- `resume_ai.html` — AI/ML resume (optional)
+
+---
+
 ## Quick Reference
 
 | Command | Description |
 |---|---|
+| `job setup` | First-time setup — register resume + profile |
 | `job search [Nd]` | Search jobs, list top 10 newest. Optional: `3d`, `7d`, `30d`... |
 | `job run [Nd]` | Preview → confirm → tailor resumes + PDFs + Discord report |
 | `job status` | Today's progress and output files |
@@ -49,6 +69,45 @@ Restore to 0 after scrape completes (always, even on error).
 ---
 
 ## Command Details
+
+### `job setup` (first-time onboarding)
+Run when a new user's `ready: false`. Walk them through setup interactively:
+
+1. Post:
+   ```
+   👋 还没有注册简历！需要以下两样东西：
+   1️⃣ 发送你的简历 HTML 文件（直接上传）
+   2️⃣ 填写个人信息（姓名、邮箱、LinkedIn、个人简介）
+   ```
+2. Wait for user to upload their resume HTML. Save the attachment content to:
+   ```bash
+   mkdir -p ~/Projects/job-workflow-oss/config/users/{SENDER_ID}
+   # Save uploaded HTML to:
+   ~/Projects/job-workflow-oss/config/users/{SENDER_ID}/resume.html
+   ```
+3. Ask for profile info (can be one message or separate):
+   ```
+   请提供：
+   - 姓名
+   - 邮箱
+   - LinkedIn URL（可选）
+   - 个人网站/Portfolio（可选）
+   - 个人简介（2-6句，包括学历、工作经历、项目、技术栈）
+   ```
+4. Write `config/users/{SENDER_ID}/profile.json`:
+   ```json
+   {
+     "name": "...",
+     "email": "...",
+     "linkedin": "...",
+     "portfolio": "...",
+     "resume_pdf_prefix": "{Name}-Resume",
+     "bio": "..."
+   }
+   ```
+5. Confirm: "✅ 注册完成！现在可以用 `job run` 开始投简历了 🚀"
+
+---
 
 ### `job search [Nd]`
 1. **Pre-run message** — post immediately before starting:
@@ -95,7 +154,7 @@ Restore to 0 after scrape completes (always, even on error).
 1. Post: "⚙️ Step 2/3: 开始定制简历 + Cover Letter，约 10-15 分钟，本地 Terminal 会弹出进度窗口，完成后 Discord 收到报告 📬"
 2. Run launcher (returns immediately — does NOT block the session):
    ```bash
-   bash ~/Projects/job-workflow-oss/run_local.sh run
+   bash ~/Projects/job-workflow-oss/run_local.sh run {SENDER_ID}
    ```
 3. Immediately reply "✅ 已在后台启动！完成后推送报告到 Discord 📬" — do NOT wait or poll.
 
@@ -104,7 +163,7 @@ Restore to 0 after scrape completes (always, even on error).
 ---
 
 ### `job status`
-1. `cd ~/Projects/job-workflow-oss && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py status`
+1. `cd ~/Projects/job-workflow-oss && /opt/homebrew/Caskroom/miniconda/base/bin/python3 src/cli.py status --user-id {SENDER_ID}`
 2. Post:
 ```
 📊 **今日求职状态** — {date}

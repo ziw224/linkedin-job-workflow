@@ -2,6 +2,9 @@
 .env
 config/candidate_profile.json
 
+# Per-user data (resumes, profiles) — never commit personal info
+config/users/
+
 # Entire resume folder — personal files, keep off git
 resume/
 

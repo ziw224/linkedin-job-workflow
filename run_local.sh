@@ -17,8 +17,9 @@ set -euo pipefail
 PROJ_DIR="$(cd "$(dirname "$0")" && pwd)"
 PYTHON="/opt/homebrew/Caskroom/miniconda/base/bin/python3"
 CMD="${1:-run}"
-LOG_FILE="${PROJ_DIR}/logs/current_run.log"
-PID_FILE="${PROJ_DIR}/logs/run.pid"
+USER_ID="${2:-}"   # Discord user ID, e.g. 970771448320897095
+LOG_FILE="${PROJ_DIR}/logs/current_run${USER_ID:+_$USER_ID}.log"
+PID_FILE="${PROJ_DIR}/logs/run${USER_ID:+_$USER_ID}.pid"
 
 mkdir -p "${PROJ_DIR}/logs"
 
@@ -37,7 +38,11 @@ fi
 [[ -f "$LOG_FILE" ]] && mv "$LOG_FILE" "${LOG_FILE}.prev" 2>/dev/null || true
 
 # ── Launch detached subprocess (survives Terminal close) ──────────────────────
-nohup "$PYTHON" -u "${PROJ_DIR}/src/cli.py" "$CMD" \
+EXTRA_ARGS=""
+[ -n "$USER_ID" ] && EXTRA_ARGS="--user-id $USER_ID"
+
+# shellcheck disable=SC2086
+nohup "$PYTHON" -u "${PROJ_DIR}/src/cli.py" "$CMD" $EXTRA_ARGS \
     >> "$LOG_FILE" 2>&1 &
 BGPID=$!
 echo "$BGPID" > "$PID_FILE"

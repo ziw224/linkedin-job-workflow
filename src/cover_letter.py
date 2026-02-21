@@ -188,13 +188,17 @@ Dear Hiring Manager,
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
-def generate_cover_letter(job: dict, output_dir: Path) -> dict[str, Path | None]:
+def generate_cover_letter(job: dict, output_dir: Path,
+                          bio: str | None = None,
+                          candidate_name: str | None = None) -> dict[str, Path | None]:
     """
     Generate cover letter and "Why [Company]" answer for a job.
 
     Args:
         job: dict with keys title, company, location, description
         output_dir: directory to save files (same as resume output dir)
+        bio: candidate bio string (overrides module-level CANDIDATE_BIO)
+        candidate_name: candidate name (overrides module-level CANDIDATE_NAME)
 
     Returns:
         {
@@ -202,6 +206,9 @@ def generate_cover_letter(job: dict, output_dir: Path) -> dict[str, Path | None]
             "why_company":  Path | None,
         }
     """
+    # Allow per-user overrides
+    _bio  = bio           if bio           is not None else CANDIDATE_BIO
+    _name = candidate_name if candidate_name is not None else CANDIDATE_NAME
     company   = job.get("company", "Company")
     title     = job.get("title", "Software Engineer")
     location  = job.get("location", "")
@@ -216,8 +223,8 @@ def generate_cover_letter(job: dict, output_dir: Path) -> dict[str, Path | None]
     # ── 1. Cover Letter ────────────────────────────────────────────────────────
     logger.info(f"  Generating cover letter for {title} @ {company} …")
     cl_prompt = COVER_LETTER_PROMPT.format(
-        candidate_name=CANDIDATE_NAME,
-        bio=CANDIDATE_BIO,
+        candidate_name=_name,
+        bio=_bio,
         title=title,
         company=company,
         location=location,
@@ -226,7 +233,7 @@ def generate_cover_letter(job: dict, output_dir: Path) -> dict[str, Path | None]
     cl_body = _run_claude(cl_prompt, f"cover_letter:{company}")
     if cl_body:
         full_letter = _format_cover_letter(cl_body, job)
-        cl_path = output_dir / f"{CANDIDATE_NAME}-CoverLetter-{company}.txt"
+        cl_path = output_dir / f"{_name}-CoverLetter-{company}.txt"
         cl_path.write_text(full_letter, encoding="utf-8")
         logger.info(f"  ✅ Cover letter saved → {cl_path.name}")
         results["cover_letter"] = cl_path
@@ -236,15 +243,15 @@ def generate_cover_letter(job: dict, output_dir: Path) -> dict[str, Path | None]
     # ── 2. Why [Company] ──────────────────────────────────────────────────────
     logger.info(f"  Generating 'Why {company}' answer …")
     why_prompt = WHY_COMPANY_PROMPT.format(
-        candidate_name=CANDIDATE_NAME,
+        candidate_name=_name,
         company=company,
         title=title,
-        bio=CANDIDATE_BIO,
+        bio=_bio,
         jd_excerpt=jd[:2500],
     )
     why_text = _run_claude(why_prompt, f"why:{company}")
     if why_text:
-        why_path = output_dir / f"{CANDIDATE_NAME}-Why{company_slug}.txt"
+        why_path = output_dir / f"{_name}-Why{company_slug}.txt"
         why_path.write_text(why_text, encoding="utf-8")
         logger.info(f"  ✅ Why-{company} saved → {why_path.name}")
         results["why_company"] = why_path

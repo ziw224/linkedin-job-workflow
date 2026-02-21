@@ -30,14 +30,9 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 import json as _json
 from datetime import date as _date
-from config.settings import OUTPUT_DIR, SEEN_JOBS_FILE, TARGET_SDE_JOBS, TARGET_AI_JOBS, JOB_WORKERS, MAX_DAYS_OLD, BASE_RESUME_HTML
+from config.settings import SEEN_JOBS_FILE, TARGET_SDE_JOBS, TARGET_AI_JOBS, JOB_WORKERS, MAX_DAYS_OLD, BASE_RESUME_HTML
+from config.user_config import get_user_output_dir, get_user_resume_path, get_resume_pdf_prefix, user_is_ready
 
-# Load candidate profile for PDF naming
-_profile_path = PROJECT_ROOT / "config" / "candidate_profile.json"
-_RESUME_PDF_PREFIX = "Resume"
-if _profile_path.exists():
-    with open(_profile_path) as _pf:
-        _RESUME_PDF_PREFIX = _json.load(_pf).get("resume_pdf_prefix", "Resume")
 from linkedin_scraper import get_new_jobs, _save_seen
 from resume_tailor import tailor_resume
 from pdf_generator import html_to_pdf
@@ -63,13 +58,12 @@ logger = logging.getLogger(__name__)
 
 # ── Per-job worker ─────────────────────────────────────────────────────────────
 
-def process_job(job: dict, today_dir: Path) -> dict:
+def process_job(job: dict, today_dir: Path, user_ctx: dict) -> dict:
     """
-    Full pipeline for one job:
-      1. tailor_resume + generate_cover_letter in parallel (both need only job dict)
-      2. html_to_pdf after resume is ready
+    Full pipeline for one job.
 
-    Returns result dict with html_path, pdf_path, cover_letter, why_company, success.
+    Args:
+        user_ctx: dict with keys base_resume, bio, candidate_name, pdf_prefix
     """
     company_slug = re.sub(r"[^a-zA-Z0-9_-]", "_", job["company"])
     company_dir  = today_dir / company_slug
@@ -81,23 +75,24 @@ def process_job(job: dict, today_dir: Path) -> dict:
     html_path = None
     cl_paths  = {"cover_letter": None, "why_company": None}
 
-    # Run resume tailoring and cover letter generation in parallel
     with ThreadPoolExecutor(max_workers=2) as inner:
-        resume_future = inner.submit(tailor_resume, job, company_dir)
-        cl_future     = inner.submit(generate_cover_letter, job, company_dir)
-
+        resume_future = inner.submit(
+            tailor_resume, job, company_dir, user_ctx["base_resume"]
+        )
+        cl_future = inner.submit(
+            generate_cover_letter, job, company_dir,
+            user_ctx["bio"], user_ctx["candidate_name"]
+        )
         html_path = resume_future.result()
         cl_paths  = cl_future.result()
 
-    # PDF must wait for html_path
     pdf_path = None
     if html_path:
-        pdf_name = f"{_RESUME_PDF_PREFIX}-{job['company']}"
+        pdf_name = f"{user_ctx['pdf_prefix']}-{job['company']}"
         pdf_path = html_to_pdf(html_path, pdf_name=pdf_name)
 
     success = html_path is not None and pdf_path is not None
-    status  = "✅" if success else "❌"
-    logger.info(f"{status} Done: {label}")
+    logger.info(f"{'✅' if success else '❌'} Done: {label}")
 
     return {
         "job":          job,
@@ -111,38 +106,45 @@ def process_job(job: dict, today_dir: Path) -> dict:
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
-def run():
+def run(user_id: str | None = None):
     import time
     t_start = time.time()
 
     logger.info("=" * 60)
-    logger.info("Daily Job-Hunt Workflow — starting")
+    logger.info(f"Daily Job-Hunt Workflow — starting (user={user_id or 'default'})")
     logger.info(f"Target: {TARGET_SDE_JOBS} SDE + {TARGET_AI_JOBS} AI/ML jobs")
     logger.info(f"Workers: {JOB_WORKERS} | Max age: {MAX_DAYS_OLD}d")
     logger.info("=" * 60)
 
-    # ── Pre-flight: verify resume file exists and is personalised ─────────────
-    if not BASE_RESUME_HTML.exists():
-        msg = (
-            f"❌ Resume file not found: {BASE_RESUME_HTML}\n"
-            f"Set RESUME_HTML_PATH in .env to point to your resume, or add it to resume/base_resume.html"
-        )
-        logger.error(msg)
+    # ── Load user-specific config ──────────────────────────────────────────────
+    from config.user_config import get_user_profile, get_user_resume_path
+    profile = get_user_profile(user_id)
+    resume_path = get_user_resume_path(user_id, ai_role=False)
+
+    # Pre-flight: verify resume
+    if not resume_path.exists():
         from progress_notifier import _post
-        _post(f"⚠️ **Job Hunt aborted** — resume file missing.\n`{BASE_RESUME_HTML}`\nSet `RESUME_HTML_PATH` in `.env`.")
+        _post(f"⚠️ **Job Hunt aborted** — resume not found for {'<@' + user_id + '>' if user_id else 'default user'}.\nRun `job setup` to register your resume.")
+        logger.error(f"Resume not found: {resume_path}")
         return
 
-    resume_content = BASE_RESUME_HTML.read_text(encoding="utf-8")
+    resume_content = resume_path.read_text(encoding="utf-8")
     if "yourhandle" in resume_content or "Alex Chen" in resume_content:
-        msg = "❌ base_resume.html still contains placeholder content. Fill in your real resume first."
-        logger.error(msg)
         from progress_notifier import _post
-        _post("⚠️ **Job Hunt aborted** — resume still has placeholder content. Update your resume HTML first.")
+        _post("⚠️ **Job Hunt aborted** — resume still has placeholder content.")
+        logger.error("Resume contains placeholder content")
         return
 
-    notify_started()  # Discord: "🚀 Job Hunt starting..."
+    user_ctx = {
+        "base_resume":    resume_path,
+        "bio":            profile.get("bio", ""),
+        "candidate_name": profile.get("name", "Candidate"),
+        "pdf_prefix":     profile.get("resume_pdf_prefix", "Resume"),
+    }
 
-    today_dir = OUTPUT_DIR / _date.today().isoformat()
+    notify_started()
+
+    today_dir = get_user_output_dir(user_id) / _date.today().isoformat()
     today_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Phase 1: Scrape (with automatic fallback) ──────────────────────────────
@@ -166,7 +168,7 @@ def run():
 
     with ThreadPoolExecutor(max_workers=JOB_WORKERS) as pool:
         future_to_idx = {
-            pool.submit(process_job, job, today_dir): i
+            pool.submit(process_job, job, today_dir, user_ctx): i
             for i, job in enumerate(selected)
         }
         for future in as_completed(future_to_idx):

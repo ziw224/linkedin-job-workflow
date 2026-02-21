@@ -119,16 +119,23 @@ def _is_ai_role(job: dict) -> bool:
     return any(kw in jd for kw in AI_ROLE_KEYWORDS)
 
 
-def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
+def tailor_resume(job: dict, output_dir: Path | None = None,
+                  base_resume: Path | None = None) -> Path | None:
     """
     Generate a tailored HTML resume for the given job dict via Claude CLI.
     Returns path to saved HTML file, or None on failure.
+
+    Args:
+        base_resume: override the default base resume HTML path (for multi-user support).
     """
     out_dir = output_dir if output_dir else OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ai_role = _is_ai_role(job)
-    base    = BASE_RESUME_HTML_AI if ai_role else BASE_RESUME_HTML
+    if base_resume:
+        base = base_resume
+    else:
+        base = BASE_RESUME_HTML_AI if ai_role else BASE_RESUME_HTML
     full_html = base.read_text(encoding="utf-8")
     role_type = "AI/ML Engineer" if ai_role else "Full Stack/Software Engineer"
     logger.info(f"  Detected role type: {role_type} → using {base.name}")

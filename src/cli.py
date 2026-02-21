@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-src/cli.py – Quick CLI wrapper for the job-hunt skill.
+src/cli.py – Multi-user CLI wrapper for the job-hunt skill.
 
 Commands:
-  scrape   Scrape LinkedIn jobs (no tailoring) — prints JSON to stdout
-  run      Run the full daily pipeline (scrape + tailor + PDF + Discord)
-  status   Print today's output summary
+  scrape   [--user-id ID]   Scrape LinkedIn jobs — prints JSON to stdout
+  run      --user-id ID     Full pipeline (scrape + tailor + PDF + Discord)
+  status   --user-id ID     Today's output summary
+  setup    --user-id ID     Interactive first-time user setup
 
 Usage (called by OpenClaw job-hunt skill):
   python src/cli.py scrape
-  python src/cli.py run
-  python src/cli.py status
+  python src/cli.py run --user-id 970771448320897095
+  python src/cli.py status --user-id 970771448320897095
 """
 
 import json
@@ -34,15 +35,24 @@ logging.basicConfig(
     handlers=[logging.FileHandler(PROJECT_ROOT / "logs" / "workflow.log")],
 )
 
+# ── Parse --user-id from argv ──────────────────────────────────────────────────
+def _parse_user_id() -> str | None:
+    """Extract --user-id VALUE from sys.argv. Returns None if not provided."""
+    args = sys.argv[1:]
+    for i, arg in enumerate(args):
+        if arg == "--user-id" and i + 1 < len(args):
+            return args[i + 1]
+    return None
+
+
+# ── Commands ───────────────────────────────────────────────────────────────────
 
 def cmd_scrape():
-    """Scrape LinkedIn for new jobs and print a JSON list to stdout.
-    Uses max_candidates_preview (smaller limit) for speed."""
+    """Scrape LinkedIn for new jobs (shared pool — not user-specific)."""
     from linkedin_scraper import scrape_with_playwright
     from config.settings import SEEN_JOBS_FILE
     import config.settings as _settings
 
-    # Temporarily use smaller candidate limit for fast preview
     cfg_path = PROJECT_ROOT / "config" / "search_config.json"
     cfg = json.load(open(cfg_path))
     preview_limit = cfg.get("max_candidates_preview", 20)
@@ -56,7 +66,7 @@ def cmd_scrape():
     try:
         jobs = scrape_with_playwright(seen)
     finally:
-        _settings.MAX_JOBS_PER_RUN = original_limit  # always restore
+        _settings.MAX_JOBS_PER_RUN = original_limit
 
     output = []
     for j in jobs:
@@ -74,19 +84,21 @@ def cmd_scrape():
 
 
 def cmd_run():
-    """Run the full daily job-hunt pipeline."""
+    """Run the full pipeline for a specific user."""
     import main
-    main.run()
+    user_id = _parse_user_id()
+    main.run(user_id=user_id)
 
 
 def cmd_status():
-    """Print today's output summary as JSON."""
-    from config.settings import OUTPUT_DIR
+    """Print today's output summary for a specific user."""
+    from config.user_config import get_user_output_dir
 
+    user_id = _parse_user_id()
     today = date.today().isoformat()
-    today_dir = OUTPUT_DIR / today
+    today_dir = get_user_output_dir(user_id) / today
 
-    result = {"date": today, "companies": [], "total": 0, "ok": 0}
+    result = {"date": today, "user_id": user_id, "companies": [], "total": 0, "ok": 0}
 
     if today_dir.exists():
         for comp_dir in sorted(today_dir.iterdir()):
@@ -105,10 +117,39 @@ def cmd_status():
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
-COMMANDS = {"scrape": cmd_scrape, "run": cmd_run, "status": cmd_status}
+def cmd_setup():
+    """Check if user is set up; print status as JSON."""
+    from config.user_config import get_user_dir, user_is_ready
+
+    user_id = _parse_user_id()
+    if not user_id:
+        print(json.dumps({"error": "missing --user-id"}))
+        sys.exit(1)
+
+    user_dir = get_user_dir(user_id)
+    profile_path = user_dir / "profile.json"
+    resume_path  = user_dir / "resume.html"
+
+    result = {
+        "user_id":      user_id,
+        "user_dir":     str(user_dir),
+        "has_profile":  profile_path.exists(),
+        "has_resume":   resume_path.exists(),
+        "ready":        user_is_ready(user_id),
+    }
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+COMMANDS = {
+    "scrape": cmd_scrape,
+    "run":    cmd_run,
+    "status": cmd_status,
+    "setup":  cmd_setup,
+}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
-        print(f"Usage: python src/cli.py [{' | '.join(COMMANDS)}]", file=sys.stderr)
+        print(f"Usage: python src/cli.py [{' | '.join(COMMANDS)}] [--user-id ID]",
+              file=sys.stderr)
         sys.exit(1)
     COMMANDS[sys.argv[1]]()
