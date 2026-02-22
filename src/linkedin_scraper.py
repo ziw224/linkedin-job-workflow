@@ -10,7 +10,6 @@ import logging
 import re
 import time
 import random
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
@@ -142,9 +141,8 @@ def _parse_cards(page, seen: set[str], existing_ids: set[str],
     return results
 
 
-def _fetch_jd(candidate: dict, browser) -> dict:
-    """Fetch the full JD for a single candidate using a new page (for parallel use)."""
-    page = browser.new_page()
+def _fetch_jd(page, candidate: dict) -> dict:
+    """Fetch the full JD for a single candidate using an existing page."""
     description = ""
     try:
         page.goto(candidate["url"], timeout=25_000)
@@ -160,8 +158,6 @@ def _fetch_jd(candidate: dict, browser) -> dict:
                 break
     except Exception as e:
         logger.warning(f"  JD fetch failed for {candidate['job_id']}: {e}")
-    finally:
-        page.close()
 
     _safe_sleep(1.0, 0.5)
     return {**candidate, "description": description}
@@ -293,35 +289,21 @@ def scrape_with_playwright(
 
         log(f"   Selected: {len(candidates)} jobs for JD fetching\n")
 
-        # ── Phase 2: Fetch JDs in parallel (Optimization B) ───────────────────
-        log(f"📄 Phase 2: Fetching JDs ({len(candidates)} jobs, {JD_FETCH_WORKERS} parallel tabs)...\n")
+        # ── Phase 2: Fetch JDs ──────────────────────────────────────────────────
+        log(f"📄 Phase 2: Fetching JDs ({len(candidates)} jobs)...\n")
 
         # Sort newest-first before fetching
         candidates.sort(key=lambda c: c["days_old"] if c["days_old"] >= 0 else 999)
 
         jobs: list[dict] = []
-        completed = 0
 
-        with ThreadPoolExecutor(max_workers=JD_FETCH_WORKERS) as pool:
-            future_to_candidate = {
-                pool.submit(_fetch_jd, c, ctx): c
-                for c in candidates
-            }
-
-            for future in as_completed(future_to_candidate):
-                c = future_to_candidate[future]
-                completed += 1
-                try:
-                    job = future.result()
-                    jobs.append(job)
-                    jd_len = len(job.get("description", ""))
-                    age_label = f"{c['days_old']}d ago" if c["days_old"] >= 0 else "?"
-                    status = "✅" if jd_len > 100 else "⚠️ short JD"
-                    log(f"  [{completed}/{len(candidates)}] {status} {c['title']} @ {c['company']} ({age_label}, {jd_len} chars)")
-                except Exception as e:
-                    completed_job = {**c, "description": ""}
-                    jobs.append(completed_job)
-                    log(f"  [{completed}/{len(candidates)}] ❌ {c['title']} @ {c['company']} — {e}")
+        for i, c in enumerate(candidates, 1):
+            job = _fetch_jd(page, c)
+            jobs.append(job)
+            jd_len = len(job.get("description", ""))
+            age_label = f"{c['days_old']}d ago" if c["days_old"] >= 0 else "?"
+            status = "✅" if jd_len > 100 else "⚠️ short JD"
+            log(f"  [{i}/{len(candidates)}] {status} {c['title']} @ {c['company']} ({age_label}, {jd_len} chars)")
 
         browser.close()
 
