@@ -138,8 +138,8 @@ def cmd_model(target: str | None = None, agent: str | None = None):
         return
 
     if t == "codex":
-        _upsert_env_vars(env_path, {"LLM_MODE": "openclaw", "OPENCLAW_AGENT": "coding"})
-        print("✅ Model set: codex (via openclaw agent=coding)")
+        _upsert_env_vars(env_path, {"LLM_MODE": "codex"})
+        print("✅ Model set: codex (direct codex CLI)")
         return
 
     if t == "openclaw":

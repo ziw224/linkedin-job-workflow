@@ -15,8 +15,10 @@ from config.settings import BASE_RESUME_HTML, BASE_RESUME_HTML_AI, AI_ROLE_KEYWO
 logger = logging.getLogger(__name__)
 
 CLAUDE_BIN = "/Users/zihanwang/.local/bin/claude"
-LLM_MODE = os.getenv("LLM_MODE", "claude").strip().lower()  # claude | openclaw
+LLM_MODE = os.getenv("LLM_MODE", "claude").strip().lower()  # claude | codex | openclaw
 OPENCLAW_AGENT = os.getenv("OPENCLAW_AGENT", "coding").strip() or "coding"
+CODEX_BIN = os.getenv("CODEX_BIN", "codex").strip() or "codex"
+CODEX_MODEL = os.getenv("CODEX_MODEL", "gpt-5.3-codex").strip() or "gpt-5.3-codex"
 # Once Claude reports quota limit in this process, skip further Claude calls.
 _CLAUDE_LIMIT_HIT = False
 _FALLBACK_LOCK = threading.Lock()
@@ -160,9 +162,37 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
                 logger.error(f"  OpenClaw call failed (code {fb.returncode}): {(fb.stderr or '')[:300]}")
                 return None
             tailored_html = fb.stdout.strip()
+        elif LLM_MODE == "codex":
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as tf:
+                out_file = tf.name
+            try:
+                cx = subprocess.run(
+                    [
+                        CODEX_BIN, "exec",
+                        "--model", CODEX_MODEL,
+                        "--sandbox", "read-only",
+                        "--skip-git-repo-check",
+                        "--output-last-message", out_file,
+                        "-",
+                    ],
+                    input=prompt,
+                    capture_output=True,
+                    text=True,
+                    timeout=420,
+                )
+                if cx.returncode != 0:
+                    logger.error(f"  Codex call failed (code {cx.returncode}): {(cx.stderr or cx.stdout or '')[:300]}")
+                    return None
+                tailored_html = Path(out_file).read_text(encoding="utf-8").strip()
+            finally:
+                try:
+                    Path(out_file).unlink(missing_ok=True)
+                except Exception:
+                    pass
         else:
             if _CLAUDE_LIMIT_HIT:
-                logger.error("  Claude quota already hit in this run. Set LLM_MODE=openclaw to continue.")
+                logger.error("  Claude quota already hit in this run. Set LLM_MODE=codex to continue.")
                 return None
             result = subprocess.run(
                 [CLAUDE_BIN, "--dangerously-skip-permissions", "--print"],
