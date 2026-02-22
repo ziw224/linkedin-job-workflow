@@ -91,6 +91,23 @@ def _build_search_url(keyword: str, location: str, exp_levels: list[int], start:
     return url
 
 
+def _location_match(job_location: str, query_location: str) -> bool:
+    """Strict location filter to avoid unrelated cities from LinkedIn broad matching."""
+    jl = (job_location or "").lower()
+    ql = (query_location or "").lower()
+
+    if not jl:
+        return False
+
+    # Remote query: only keep remote-labeled jobs
+    if "remote" in ql:
+        return "remote" in jl
+
+    # City query: require city token match (e.g. "san francisco")
+    city = ql.split(",")[0].strip()
+    return city in jl
+
+
 def _parse_cards(page, seen: set[str], existing_ids: set[str],
                  keyword: str, location: str, max_days: int) -> list[dict]:
     """Parse job cards from the current page. Returns new candidates only."""
@@ -118,6 +135,10 @@ def _parse_cards(page, seen: set[str], existing_ids: set[str],
 
             # Skip seen or already collected
             if job_id in seen or job_id in existing_ids:
+                continue
+
+            # Strict location filter (LinkedIn often returns broad nearby results)
+            if not _location_match(loc_str, location):
                 continue
 
             # Filter by recency
@@ -249,6 +270,8 @@ def scrape_with_playwright(
 
                 # Track IDs for dedup across searches
                 for c in new_cards:
+                    if len(sde_candidates) + len(ai_candidates) >= MAX_JOBS_PER_RUN:
+                        break
                     all_ids.add(c["job_id"])
                     seen.add(c["job_id"])
                     c["category"] = category
@@ -260,6 +283,9 @@ def scrape_with_playwright(
                 total_cards = len(page.query_selector_all(".job-search-card"))
                 search_new += len(new_cards)
                 log(f"     Page {page_num + 1}: {total_cards} cards, {len(new_cards)} new")
+
+                if len(sde_candidates) + len(ai_candidates) >= MAX_JOBS_PER_RUN:
+                    break
 
                 # Stop paginating if this page had few results (likely last page)
                 if total_cards < CARDS_PER_PAGE * 0.8:
