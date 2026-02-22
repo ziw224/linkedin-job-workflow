@@ -115,7 +115,7 @@ def _run_claude(prompt: str, label: str) -> str | None:
             logger.warning(f"  Falling back to OpenClaw model routing for {label} ...")
             fb = subprocess.run(
                 [
-                    "openclaw", "agent",
+                    "openclaw", "agent", "--local",
                     "--agent", "coding",
                     "--message", prompt,
                 ],

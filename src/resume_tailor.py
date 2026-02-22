@@ -151,7 +151,7 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
             logger.warning("  Falling back to OpenClaw model routing for resume tailoring ...")
             fb = subprocess.run(
                 [
-                    "openclaw", "agent",
+                    "openclaw", "agent", "--local",
                     "--agent", "coding",
                     "--message", prompt,
                 ],
