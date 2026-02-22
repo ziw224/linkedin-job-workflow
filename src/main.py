@@ -29,6 +29,7 @@ from dotenv import load_dotenv  # type: ignore
 load_dotenv(PROJECT_ROOT / ".env")
 
 from datetime import date as _date
+import os
 from config.settings import OUTPUT_DIR, SEEN_JOBS_FILE, TARGET_SDE_JOBS, TARGET_AI_JOBS, JOB_WORKERS, MAX_DAYS_OLD
 from linkedin_scraper import get_new_jobs, _save_seen
 from resume_tailor import tailor_resume
@@ -106,10 +107,15 @@ def run():
     import time
     t_start = time.time()
 
+    llm_mode = os.getenv("LLM_MODE", "claude").strip().lower()
+    workers = JOB_WORKERS
+    if llm_mode == "openclaw" and workers > 1:
+        workers = 1  # avoid openclaw session lock contention in parallel workers
+
     logger.info("=" * 60)
     logger.info("Daily Job-Hunt Workflow — starting")
     logger.info(f"Target: {TARGET_SDE_JOBS} SDE + {TARGET_AI_JOBS} AI/ML jobs")
-    logger.info(f"Workers: {JOB_WORKERS} | Max age: {MAX_DAYS_OLD}d")
+    logger.info(f"Workers: {workers} | Max age: {MAX_DAYS_OLD}d | LLM_MODE: {llm_mode}")
     logger.info("=" * 60)
 
     today_dir = OUTPUT_DIR / _date.today().isoformat()
@@ -127,11 +133,11 @@ def run():
     logger.info(f"Proceeding with {len(selected)} jobs")
 
     # ── Phase 2: Parallel processing ──────────────────────────────────────────
-    logger.info(f"\n⚙️  Phase 2: Generating resumes for {len(selected)} jobs (workers={JOB_WORKERS})…")
+    logger.info(f"\n⚙️  Phase 2: Generating resumes for {len(selected)} jobs (workers={workers})…")
 
     results = [None] * len(selected)
 
-    with ThreadPoolExecutor(max_workers=JOB_WORKERS) as pool:
+    with ThreadPoolExecutor(max_workers=workers) as pool:
         future_to_idx = {
             pool.submit(process_job, job, today_dir): i
             for i, job in enumerate(selected)
