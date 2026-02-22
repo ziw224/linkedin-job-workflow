@@ -15,6 +15,8 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 CLAUDE_BIN = "/Users/zihanwang/.local/bin/claude"
+# Once Claude reports quota limit in this process, skip further Claude calls.
+_CLAUDE_LIMIT_HIT = False
 
 # ── Candidate Background (static context) ─────────────────────────────────────
 CANDIDATE_BIO = """
@@ -99,19 +101,29 @@ CRITICAL RULES:
 def _run_claude(prompt: str, label: str) -> str | None:
     """Run Claude CLI with fallback to OpenClaw model routing when Claude is unavailable."""
     try:
+        global _CLAUDE_LIMIT_HIT
         env = os.environ.copy()
         env.pop("ANTHROPIC_API_KEY", None)
-        result = subprocess.run(
-            [CLAUDE_BIN, "--dangerously-skip-permissions", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=180,
-            env=env,
-        )
-        if result.returncode != 0:
-            err = (result.stderr or result.stdout or "")[:500]
-            logger.error(f"  Claude CLI failed for {label} (code {result.returncode}): {err}")
+
+        if _CLAUDE_LIMIT_HIT:
+            logger.warning(f"  Claude quota already hit in this run — skipping Claude for {label}.")
+            result = None
+        else:
+            result = subprocess.run(
+                [CLAUDE_BIN, "--dangerously-skip-permissions", "--print"],
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=180,
+                env=env,
+            )
+        if result is None or result.returncode != 0:
+            if result is not None:
+                err_full = (result.stderr or result.stdout or "")
+                if "hit your limit" in err_full.lower() or "resets" in err_full.lower():
+                    _CLAUDE_LIMIT_HIT = True
+                err = err_full[:500]
+                logger.error(f"  Claude CLI failed for {label} (code {result.returncode}): {err}")
             logger.warning(f"  Falling back to OpenClaw model routing for {label} ...")
             fb = subprocess.run(
                 [

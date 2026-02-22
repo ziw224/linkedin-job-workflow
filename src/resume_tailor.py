@@ -13,6 +13,8 @@ from config.settings import BASE_RESUME_HTML, BASE_RESUME_HTML_AI, AI_ROLE_KEYWO
 logger = logging.getLogger(__name__)
 
 CLAUDE_BIN = "/Users/zihanwang/.local/bin/claude"
+# Once Claude reports quota limit in this process, skip further Claude calls.
+_CLAUDE_LIMIT_HIT = False
 
 PROMPT_TEMPLATE = """You are an ATS optimization specialist making surgical edits to a resume for a specific job.
 Role type: {role_type}
@@ -134,20 +136,30 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
 
     try:
         import os
+        global _CLAUDE_LIMIT_HIT
         env = os.environ.copy()
         # Remove API key from env so Claude CLI uses its own saved login credentials
         env.pop("ANTHROPIC_API_KEY", None)
-        result = subprocess.run(
-            [CLAUDE_BIN, "--dangerously-skip-permissions", "--print"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            env=env,
-        )
 
-        if result.returncode != 0:
-            logger.error(f"  Claude CLI failed (code {result.returncode}): {result.stderr[:400] or result.stdout[:200]}")
+        if _CLAUDE_LIMIT_HIT:
+            logger.warning("  Claude quota already hit in this run — skipping Claude call and using fallback.")
+            result = None
+        else:
+            result = subprocess.run(
+                [CLAUDE_BIN, "--dangerously-skip-permissions", "--print"],
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                env=env,
+            )
+
+        if result is None or result.returncode != 0:
+            if result is not None:
+                err = (result.stderr or result.stdout or "")
+                if "hit your limit" in err.lower() or "resets" in err.lower():
+                    _CLAUDE_LIMIT_HIT = True
+                logger.error(f"  Claude CLI failed (code {result.returncode}): {err[:400]}")
             logger.warning("  Falling back to OpenClaw model routing for resume tailoring ...")
             fb = subprocess.run(
                 [
