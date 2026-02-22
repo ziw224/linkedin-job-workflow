@@ -27,11 +27,15 @@ for p in (str(PROJECT_ROOT), str(PROJECT_ROOT / "src")):
 from dotenv import load_dotenv
 load_dotenv(PROJECT_ROOT / ".env")
 
+(PROJECT_ROOT / "logs").mkdir(exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(message)s",
     datefmt="%H:%M:%S",
-    handlers=[logging.FileHandler(PROJECT_ROOT / "logs" / "workflow.log")],
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(PROJECT_ROOT / "logs" / "workflow.log"),
+    ],
 )
 
 

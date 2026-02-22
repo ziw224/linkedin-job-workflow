@@ -117,7 +117,7 @@ def run():
 
     # ── Phase 1: Scrape (with automatic fallback) ──────────────────────────────
     logger.info("\n📡 Phase 1: Scraping LinkedIn…")
-    selected, seen = get_new_jobs()   # already bucketed + fallback handled
+    selected, seen = get_new_jobs(on_progress=lambda msg: print(msg, flush=True))
 
     if not selected:
         logger.info("No new jobs found today.")
