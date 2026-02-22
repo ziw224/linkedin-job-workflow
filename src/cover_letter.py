@@ -16,6 +16,8 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 CLAUDE_BIN = "/Users/zihanwang/.local/bin/claude"
+LLM_MODE = os.getenv("LLM_MODE", "claude").strip().lower()  # claude | openclaw
+OPENCLAW_AGENT = os.getenv("OPENCLAW_AGENT", "coding").strip() or "coding"
 # Once Claude reports quota limit in this process, skip further Claude calls.
 _CLAUDE_LIMIT_HIT = False
 _FALLBACK_LOCK = threading.Lock()
@@ -101,16 +103,32 @@ CRITICAL RULES:
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _run_claude(prompt: str, label: str) -> str | None:
-    """Run Claude CLI with fallback to OpenClaw model routing when Claude is unavailable."""
+    """Run selected model backend (LLM_MODE=claude|openclaw). No automatic fallback."""
     try:
         global _CLAUDE_LIMIT_HIT
         env = os.environ.copy()
         env.pop("ANTHROPIC_API_KEY", None)
 
-        if _CLAUDE_LIMIT_HIT:
-            logger.warning(f"  Claude quota already hit in this run — skipping Claude for {label}.")
-            result = None
+        if LLM_MODE == "openclaw":
+            with _FALLBACK_LOCK:
+                fb = subprocess.run(
+                    [
+                        "openclaw", "agent", "--local",
+                        "--agent", OPENCLAW_AGENT,
+                        "--message", prompt,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=240,
+                )
+            if fb.returncode != 0:
+                logger.error(f"  OpenClaw call failed for {label} (code {fb.returncode}): {(fb.stderr or '')[:300]}")
+                return None
+            output = fb.stdout.strip()
         else:
+            if _CLAUDE_LIMIT_HIT:
+                logger.error(f"  Claude quota already hit in this run for {label}. Set LLM_MODE=openclaw.")
+                return None
             result = subprocess.run(
                 [CLAUDE_BIN, "--dangerously-skip-permissions", "--print"],
                 input=prompt,
@@ -119,30 +137,12 @@ def _run_claude(prompt: str, label: str) -> str | None:
                 timeout=180,
                 env=env,
             )
-        if result is None or result.returncode != 0:
-            if result is not None:
+            if result.returncode != 0:
                 err_full = (result.stderr or result.stdout or "")
                 if "hit your limit" in err_full.lower() or "resets" in err_full.lower():
                     _CLAUDE_LIMIT_HIT = True
-                err = err_full[:500]
-                logger.error(f"  Claude CLI failed for {label} (code {result.returncode}): {err}")
-            logger.warning(f"  Falling back to OpenClaw model routing for {label} ...")
-            with _FALLBACK_LOCK:
-                fb = subprocess.run(
-                    [
-                        "openclaw", "agent", "--local",
-                        "--agent", "coding",
-                        "--message", prompt,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=240,
-                )
-            if fb.returncode != 0:
-                logger.error(f"  OpenClaw fallback failed for {label} (code {fb.returncode}): {(fb.stderr or '')[:300]}")
+                logger.error(f"  Claude CLI failed for {label} (code {result.returncode}): {err_full[:500]}")
                 return None
-            output = fb.stdout.strip()
-        else:
             output = result.stdout.strip()
         if not output:
             logger.error(f"  Claude returned empty output for {label}")

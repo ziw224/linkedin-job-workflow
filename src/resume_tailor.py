@@ -4,6 +4,7 @@ src/resume_tailor.py – Tailor the HTML resume to a specific JD using local Cla
 Uses `claude -p "..."` (Claude Code Max subscription, no API billing).
 """
 import logging
+import os
 import re
 import subprocess
 import threading
@@ -14,6 +15,8 @@ from config.settings import BASE_RESUME_HTML, BASE_RESUME_HTML_AI, AI_ROLE_KEYWO
 logger = logging.getLogger(__name__)
 
 CLAUDE_BIN = "/Users/zihanwang/.local/bin/claude"
+LLM_MODE = os.getenv("LLM_MODE", "claude").strip().lower()  # claude | openclaw
+OPENCLAW_AGENT = os.getenv("OPENCLAW_AGENT", "coding").strip() or "coding"
 # Once Claude reports quota limit in this process, skip further Claude calls.
 _CLAUDE_LIMIT_HIT = False
 _FALLBACK_LOCK = threading.Lock()
@@ -134,19 +137,33 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
     locked_body = _inject_locks(resume_body)
     prompt = PROMPT_TEMPLATE.format(jd=jd[:6000], resume_body=locked_body, role_type=role_type)
 
-    logger.info(f"  Tailoring via Claude CLI: {job['title']} @ {job['company']} …")
+    logger.info(f"  Tailoring ({LLM_MODE}): {job['title']} @ {job['company']} …")
 
     try:
-        import os
         global _CLAUDE_LIMIT_HIT
         env = os.environ.copy()
-        # Remove API key from env so Claude CLI uses its own saved login credentials
         env.pop("ANTHROPIC_API_KEY", None)
 
-        if _CLAUDE_LIMIT_HIT:
-            logger.warning("  Claude quota already hit in this run — skipping Claude call and using fallback.")
-            result = None
+        if LLM_MODE == "openclaw":
+            with _FALLBACK_LOCK:
+                fb = subprocess.run(
+                    [
+                        "openclaw", "agent", "--local",
+                        "--agent", OPENCLAW_AGENT,
+                        "--message", prompt,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=360,
+                )
+            if fb.returncode != 0:
+                logger.error(f"  OpenClaw call failed (code {fb.returncode}): {(fb.stderr or '')[:300]}")
+                return None
+            tailored_html = fb.stdout.strip()
         else:
+            if _CLAUDE_LIMIT_HIT:
+                logger.error("  Claude quota already hit in this run. Set LLM_MODE=openclaw to continue.")
+                return None
             result = subprocess.run(
                 [CLAUDE_BIN, "--dangerously-skip-permissions", "--print"],
                 input=prompt,
@@ -155,30 +172,12 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
                 timeout=300,
                 env=env,
             )
-
-        if result is None or result.returncode != 0:
-            if result is not None:
+            if result.returncode != 0:
                 err = (result.stderr or result.stdout or "")
                 if "hit your limit" in err.lower() or "resets" in err.lower():
                     _CLAUDE_LIMIT_HIT = True
                 logger.error(f"  Claude CLI failed (code {result.returncode}): {err[:400]}")
-            logger.warning("  Falling back to OpenClaw model routing for resume tailoring ...")
-            with _FALLBACK_LOCK:
-                fb = subprocess.run(
-                    [
-                        "openclaw", "agent", "--local",
-                        "--agent", "coding",
-                        "--message", prompt,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=360,
-                )
-            if fb.returncode != 0:
-                logger.error(f"  OpenClaw fallback failed (code {fb.returncode}): {(fb.stderr or '')[:300]}")
                 return None
-            tailored_html = fb.stdout.strip()
-        else:
             tailored_html = result.stdout.strip()
 
     except subprocess.TimeoutExpired:
