@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 CLAUDE_BIN = "/Users/zihanwang/.local/bin/claude"
 LLM_MODE = os.getenv("LLM_MODE", "claude").strip().lower()  # claude | codex | openclaw
 OPENCLAW_AGENT = os.getenv("OPENCLAW_AGENT", "coding").strip() or "coding"
-CODEX_BIN = os.getenv("CODEX_BIN", "codex").strip() or "codex"
+CODEX_BIN = os.getenv("CODEX_BIN", "/Users/zihanwang/.nvm/versions/node/v22.12.0/bin/codex").strip()
 CODEX_MODEL = os.getenv("CODEX_MODEL", "gpt-5.3-codex").strip() or "gpt-5.3-codex"
 # Once Claude reports quota limit in this process, skip further Claude calls.
 _CLAUDE_LIMIT_HIT = False
