@@ -20,8 +20,8 @@ from config.settings import (
     MAX_DAYS_OLD,
     MAX_JOBS_PER_RUN,
     SEEN_JOBS_FILE,
-    SDE_KEYWORDS, SDE_EXPERIENCE_LEVELS, TARGET_SDE_JOBS,
-    AI_KEYWORDS,  AI_EXPERIENCE_LEVELS,  TARGET_AI_JOBS,
+    SDE_KEYWORDS, SDE_BOOST_KEYWORDS, SDE_EXPERIENCE_LEVELS, TARGET_SDE_JOBS,
+    AI_KEYWORDS,  AI_BOOST_KEYWORDS,  AI_EXPERIENCE_LEVELS,  TARGET_AI_JOBS,
     FALLBACK_STAGES,
 )
 
@@ -186,6 +186,15 @@ def _fetch_jd(page, candidate: dict) -> dict:
 
 # ── Main Scraper ───────────────────────────────────────────────────────────────
 
+def _effective_keywords(base: list[str], boost: list[str], exp_levels: list[int]) -> list[str]:
+    """For entry-level searches (exp level 2), include boost keywords like New Grad."""
+    kws = list(base)
+    if 2 in exp_levels and boost:
+        kws.extend(boost)
+    # de-dup while preserving order
+    return list(dict.fromkeys(kws))
+
+
 def scrape_with_playwright(
     seen: set[str],
     max_days_old: int | None = None,
@@ -211,10 +220,13 @@ def scrape_with_playwright(
     effective_sde_exp  = SDE_EXPERIENCE_LEVELS if sde_exp_levels is None else sde_exp_levels
     effective_ai_exp   = AI_EXPERIENCE_LEVELS  if ai_exp_levels  is None else ai_exp_levels
 
+    sde_kws = _effective_keywords(SDE_KEYWORDS, SDE_BOOST_KEYWORDS, effective_sde_exp)
+    ai_kws  = _effective_keywords(AI_KEYWORDS,  AI_BOOST_KEYWORDS,  effective_ai_exp)
+
     # Build search plan: (keyword, location, experience_levels, category)
     search_plan = (
-        [(kw, loc, effective_sde_exp, "sde") for kw in SDE_KEYWORDS for loc in SEARCH_LOCATIONS] +
-        [(kw, loc, effective_ai_exp,  "ai")  for kw in AI_KEYWORDS   for loc in SEARCH_LOCATIONS]
+        [(kw, loc, effective_sde_exp, "sde") for kw in sde_kws for loc in SEARCH_LOCATIONS] +
+        [(kw, loc, effective_ai_exp,  "ai")  for kw in ai_kws  for loc in SEARCH_LOCATIONS]
     )
 
     total_searches = len(search_plan)

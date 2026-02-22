@@ -18,10 +18,16 @@
   },
   "categories": {
     "sde": {
-      "_comment": "Full Stack / Software Engineer roles (2 keywords covers 95%+ of results)",
+      "_comment": "Full Stack / Software Engineer roles",
       "keywords": [
         "Software Engineer",
         "Full Stack Engineer"
+      ],
+      "boost_keywords": [
+        "Entry Level Software Engineer",
+        "New Grad Software Engineer",
+        "Software Engineer New Grad",
+        "Junior Software Engineer"
       ],
       "experience_levels": [
         2
@@ -30,10 +36,15 @@
       "target_count": 10
     },
     "ai": {
-      "_comment": "AI / ML Engineer roles (2 keywords covers 95%+ of results)",
+      "_comment": "AI / ML Engineer roles",
       "keywords": [
         "AI Engineer",
         "Machine Learning Engineer"
+      ],
+      "boost_keywords": [
+        "Entry Level Machine Learning Engineer",
+        "New Grad Machine Learning Engineer",
+        "Junior ML Engineer"
       ],
       "experience_levels": [
         2,

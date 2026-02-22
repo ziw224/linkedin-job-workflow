@@ -27,10 +27,12 @@ JOB_WORKERS           = SEARCH_CONFIG.get("job_workers", 2)
 
 # Per-category settings
 SDE_KEYWORDS          = _sde["keywords"]
+SDE_BOOST_KEYWORDS    = _sde.get("boost_keywords", [])
 SDE_EXPERIENCE_LEVELS = _sde["experience_levels"]
 TARGET_SDE_JOBS       = _sde["target_count"]
 
 AI_KEYWORDS           = _ai["keywords"]
+AI_BOOST_KEYWORDS     = _ai.get("boost_keywords", [])
 AI_EXPERIENCE_LEVELS  = _ai["experience_levels"]
 TARGET_AI_JOBS        = _ai["target_count"]
 
