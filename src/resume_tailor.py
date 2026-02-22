@@ -148,9 +148,23 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
 
         if result.returncode != 0:
             logger.error(f"  Claude CLI failed (code {result.returncode}): {result.stderr[:400] or result.stdout[:200]}")
-            return None
-
-        tailored_html = result.stdout.strip()
+            logger.warning("  Falling back to OpenClaw model routing for resume tailoring ...")
+            fb = subprocess.run(
+                [
+                    "openclaw", "agent",
+                    "--agent", "coding",
+                    "--message", prompt,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=360,
+            )
+            if fb.returncode != 0:
+                logger.error(f"  OpenClaw fallback failed (code {fb.returncode}): {(fb.stderr or '')[:300]}")
+                return None
+            tailored_html = fb.stdout.strip()
+        else:
+            tailored_html = result.stdout.strip()
 
     except subprocess.TimeoutExpired:
         logger.error("  Claude CLI timed out.")

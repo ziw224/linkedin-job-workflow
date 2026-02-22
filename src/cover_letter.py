@@ -97,7 +97,7 @@ CRITICAL RULES:
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _run_claude(prompt: str, label: str) -> str | None:
-    """Run Claude CLI with prompt via stdin. Returns output text or None on failure."""
+    """Run Claude CLI with fallback to OpenClaw model routing when Claude is unavailable."""
     try:
         env = os.environ.copy()
         env.pop("ANTHROPIC_API_KEY", None)
@@ -110,9 +110,25 @@ def _run_claude(prompt: str, label: str) -> str | None:
             env=env,
         )
         if result.returncode != 0:
-            logger.error(f"  Claude CLI failed for {label} (code {result.returncode}): {result.stderr[:300]}")
-            return None
-        output = result.stdout.strip()
+            err = (result.stderr or result.stdout or "")[:500]
+            logger.error(f"  Claude CLI failed for {label} (code {result.returncode}): {err}")
+            logger.warning(f"  Falling back to OpenClaw model routing for {label} ...")
+            fb = subprocess.run(
+                [
+                    "openclaw", "agent",
+                    "--agent", "coding",
+                    "--message", prompt,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=240,
+            )
+            if fb.returncode != 0:
+                logger.error(f"  OpenClaw fallback failed for {label} (code {fb.returncode}): {(fb.stderr or '')[:300]}")
+                return None
+            output = fb.stdout.strip()
+        else:
+            output = result.stdout.strip()
         if not output:
             logger.error(f"  Claude returned empty output for {label}")
             return None
