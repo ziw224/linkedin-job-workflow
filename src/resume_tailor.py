@@ -6,6 +6,7 @@ Uses `claude -p "..."` (Claude Code Max subscription, no API billing).
 import logging
 import re
 import subprocess
+import threading
 from pathlib import Path
 
 from config.settings import BASE_RESUME_HTML, BASE_RESUME_HTML_AI, AI_ROLE_KEYWORDS, AI_TITLE_KEYWORDS, FS_TITLE_KEYWORDS, OUTPUT_DIR
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 CLAUDE_BIN = "/Users/zihanwang/.local/bin/claude"
 # Once Claude reports quota limit in this process, skip further Claude calls.
 _CLAUDE_LIMIT_HIT = False
+_FALLBACK_LOCK = threading.Lock()
 
 PROMPT_TEMPLATE = """You are an ATS optimization specialist making surgical edits to a resume for a specific job.
 Role type: {role_type}
@@ -161,16 +163,17 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
                     _CLAUDE_LIMIT_HIT = True
                 logger.error(f"  Claude CLI failed (code {result.returncode}): {err[:400]}")
             logger.warning("  Falling back to OpenClaw model routing for resume tailoring ...")
-            fb = subprocess.run(
-                [
-                    "openclaw", "agent", "--local",
-                    "--agent", "coding",
-                    "--message", prompt,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=360,
-            )
+            with _FALLBACK_LOCK:
+                fb = subprocess.run(
+                    [
+                        "openclaw", "agent", "--local",
+                        "--agent", "coding",
+                        "--message", prompt,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=360,
+                )
             if fb.returncode != 0:
                 logger.error(f"  OpenClaw fallback failed (code {fb.returncode}): {(fb.stderr or '')[:300]}")
                 return None

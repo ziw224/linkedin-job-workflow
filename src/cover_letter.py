@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import subprocess
+import threading
 from datetime import date
 from pathlib import Path
 
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 CLAUDE_BIN = "/Users/zihanwang/.local/bin/claude"
 # Once Claude reports quota limit in this process, skip further Claude calls.
 _CLAUDE_LIMIT_HIT = False
+_FALLBACK_LOCK = threading.Lock()
 
 # ── Candidate Background (static context) ─────────────────────────────────────
 CANDIDATE_BIO = """
@@ -125,16 +127,17 @@ def _run_claude(prompt: str, label: str) -> str | None:
                 err = err_full[:500]
                 logger.error(f"  Claude CLI failed for {label} (code {result.returncode}): {err}")
             logger.warning(f"  Falling back to OpenClaw model routing for {label} ...")
-            fb = subprocess.run(
-                [
-                    "openclaw", "agent", "--local",
-                    "--agent", "coding",
-                    "--message", prompt,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=240,
-            )
+            with _FALLBACK_LOCK:
+                fb = subprocess.run(
+                    [
+                        "openclaw", "agent", "--local",
+                        "--agent", "coding",
+                        "--message", prompt,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=240,
+                )
             if fb.returncode != 0:
                 logger.error(f"  OpenClaw fallback failed for {label} (code {fb.returncode}): {(fb.stderr or '')[:300]}")
                 return None
