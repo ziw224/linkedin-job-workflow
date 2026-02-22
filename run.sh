@@ -1,10 +1,10 @@
 #!/bin/bash
 # Daily job-hunt workflow runner
-# Cron: 30 7 * * * /Users/zihanwang/Projects/job-workflow-oss/run.sh >> /Users/zihanwang/Projects/job-workflow-oss/logs/cron.log 2>&1
+# Cron: 30 7 * * * /Users/zihanwang/Projects/job-workflow/run.sh >> /Users/zihanwang/Projects/job-workflow/logs/cron.log 2>&1
 
 export PATH="/Users/zihanwang/.local/bin:/opt/homebrew/Caskroom/miniconda/base/bin:/usr/local/bin:/usr/bin:/bin"
 export HOME="/Users/zihanwang"
-DIR="/Users/zihanwang/Projects/job-workflow-oss"
+DIR="/Users/zihanwang/Projects/job-workflow"
 
 cd "$DIR"
 
@@ -25,10 +25,11 @@ fi
 if [ "$AUTH_OK" = false ]; then
     echo "[$(date '+%H:%M:%S')] ❌ Claude CLI not authenticated — aborting run"
 
+    # Send Discord alert
     if [ -n "$DISCORD_WEBHOOK_URL" ]; then
         curl -s -X POST "$DISCORD_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"content\": \"⚠️ **求职自动化失败** — Claude CLI 登录过期！\\n请在终端运行 \`claude login\` 重新登录，然后手动触发 \`job run\`。\"}"
+            -d "{\"content\": \"⚠️ **求职自动化失败** — Claude CLI 登录过期！\n请在终端运行 \`claude login\` 重新登录，然后手动触发 \`job run\`。\"}"
     fi
     exit 1
 fi

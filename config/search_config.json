@@ -8,8 +8,8 @@
   "_sort_by_comment": "DD = most recent first. R = most relevant.",
   "max_days_old": 0,
   "_max_days_old_comment": "Time limit for job search. 0 = no limit (search all available). Set to e.g. 7 or 14 to restrict to recent jobs only. When a limit is set, results are strictly filtered \u2014 no fallback expansion.",
-  "max_candidates": 60,
-  "_max_candidates_comment": "Max job cards to collect per scrape attempt.",
+  "max_candidates": 30,
+  "_max_candidates_comment": "Max job cards to collect per scrape attempt. 2x target (15) as buffer.",
   "job_workers": 4,
   "_job_workers_comment": "Parallel workers for resume/cover-letter generation.",
   "fallback": {
@@ -18,13 +18,10 @@
   },
   "categories": {
     "sde": {
-      "_comment": "Full Stack / Software Engineer roles",
+      "_comment": "Full Stack / Software Engineer roles (2 keywords covers 95%+ of results)",
       "keywords": [
         "Software Engineer",
-        "Full Stack Engineer",
-        "Full Stack Developer",
-        "Entry Level Software Engineer",
-        "Junior Software Engineer"
+        "Full Stack Engineer"
       ],
       "experience_levels": [
         2
@@ -33,13 +30,10 @@
       "target_count": 10
     },
     "ai": {
-      "_comment": "AI / ML Engineer roles",
+      "_comment": "AI / ML Engineer roles (2 keywords covers 95%+ of results)",
       "keywords": [
         "AI Engineer",
-        "ML Engineer",
-        "Machine Learning Engineer",
-        "AI Software Engineer",
-        "Applied ML Engineer"
+        "Machine Learning Engineer"
       ],
       "experience_levels": [
         2,

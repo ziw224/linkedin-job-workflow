@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def html_to_pdf(html_path: Path, pdf_name: str | None = None) -> Path | None:
     """
     Render *html_path* in headless Chromium and save a PDF.
-    pdf_name: filename without extension, e.g. 'Your Name-Resume-Stripe'.
+    pdf_name: filename without extension, e.g. 'Zihan Wang-Resume-Stripe'.
     Returns the PDF path, or None on failure.
     """
     try:

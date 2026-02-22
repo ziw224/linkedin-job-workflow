@@ -10,7 +10,7 @@ Parallelization strategy:
 Target: 5 SDE/Fullstack + 5 AI/ML jobs per day → 10 total
 
 Cron (7:30 AM daily — finishes well before 9 AM):
-    30 7 * * * /path/to/job-workflow/run.sh
+    30 7 * * * /Users/zihanwang/Projects/job-workflow/run.sh
 """
 import logging
 import re
@@ -28,23 +28,13 @@ for p in (str(PROJECT_ROOT), str(SRC_DIR)):
 from dotenv import load_dotenv  # type: ignore
 load_dotenv(PROJECT_ROOT / ".env")
 
-import json as _json
 from datetime import date as _date
-from config.settings import SEEN_JOBS_FILE, TARGET_SDE_JOBS, TARGET_AI_JOBS, JOB_WORKERS, MAX_DAYS_OLD, BASE_RESUME_HTML
-from config.user_config import get_user_output_dir, get_user_resume_path, get_resume_pdf_prefix, user_is_ready
-
-try:
-    import db as _db_mod
-    _USE_DB = _db_mod.db_available()
-except Exception:
-    _USE_DB = False
-
+from config.settings import OUTPUT_DIR, SEEN_JOBS_FILE, TARGET_SDE_JOBS, TARGET_AI_JOBS, JOB_WORKERS, MAX_DAYS_OLD
 from linkedin_scraper import get_new_jobs, _save_seen
 from resume_tailor import tailor_resume
 from pdf_generator import html_to_pdf
 from cover_letter import generate_cover_letter
 from notifier import send_discord_report
-from progress_notifier import notify_started, notify_scraped, BatchProgressReporter, notify_finished, set_notify_target
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 LOG_DIR = PROJECT_ROOT / "logs"
@@ -64,12 +54,13 @@ logger = logging.getLogger(__name__)
 
 # ── Per-job worker ─────────────────────────────────────────────────────────────
 
-def process_job(job: dict, today_dir: Path, user_ctx: dict) -> dict:
+def process_job(job: dict, today_dir: Path) -> dict:
     """
-    Full pipeline for one job.
+    Full pipeline for one job:
+      1. tailor_resume + generate_cover_letter in parallel (both need only job dict)
+      2. html_to_pdf after resume is ready
 
-    Args:
-        user_ctx: dict with keys base_resume, bio, candidate_name, pdf_prefix
+    Returns result dict with html_path, pdf_path, cover_letter, why_company, success.
     """
     company_slug = re.sub(r"[^a-zA-Z0-9_-]", "_", job["company"])
     company_dir  = today_dir / company_slug
@@ -81,24 +72,23 @@ def process_job(job: dict, today_dir: Path, user_ctx: dict) -> dict:
     html_path = None
     cl_paths  = {"cover_letter": None, "why_company": None}
 
+    # Run resume tailoring and cover letter generation in parallel
     with ThreadPoolExecutor(max_workers=2) as inner:
-        resume_future = inner.submit(
-            tailor_resume, job, company_dir, user_ctx["base_resume"]
-        )
-        cl_future = inner.submit(
-            generate_cover_letter, job, company_dir,
-            user_ctx["bio"], user_ctx["candidate_name"]
-        )
+        resume_future = inner.submit(tailor_resume, job, company_dir)
+        cl_future     = inner.submit(generate_cover_letter, job, company_dir)
+
         html_path = resume_future.result()
         cl_paths  = cl_future.result()
 
+    # PDF must wait for html_path
     pdf_path = None
     if html_path:
-        pdf_name = f"{user_ctx['pdf_prefix']}-{job['company']}"
+        pdf_name = f"Zihan Wang-Resume-{job['company']}"
         pdf_path = html_to_pdf(html_path, pdf_name=pdf_name)
 
     success = html_path is not None and pdf_path is not None
-    logger.info(f"{'✅' if success else '❌'} Done: {label}")
+    status  = "✅" if success else "❌"
+    logger.info(f"{status} Done: {label}")
 
     return {
         "job":          job,
@@ -112,115 +102,26 @@ def process_job(job: dict, today_dir: Path, user_ctx: dict) -> dict:
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
-def run(user_id: str | None = None):
+def run():
     import time
-    import uuid
     t_start = time.time()
-    run_id = str(uuid.uuid4())
 
     logger.info("=" * 60)
-    logger.info(f"Daily Job-Hunt Workflow — starting (user={user_id or 'default'})")
+    logger.info("Daily Job-Hunt Workflow — starting")
     logger.info(f"Target: {TARGET_SDE_JOBS} SDE + {TARGET_AI_JOBS} AI/ML jobs")
     logger.info(f"Workers: {JOB_WORKERS} | Max age: {MAX_DAYS_OLD}d")
     logger.info("=" * 60)
 
-    # ── Load user-specific config ──────────────────────────────────────────────
-    from config.user_config import get_user_profile, get_user_resume_path
-    profile = get_user_profile(user_id)
-    resume_path = get_user_resume_path(user_id, ai_role=False)
-
-    # Pre-flight: verify resume
-    if not resume_path.exists():
-        from progress_notifier import _post
-        _post(f"⚠️ **Job Hunt aborted** — resume not found for {'<@' + user_id + '>' if user_id else 'default user'}.\nRun `job setup` to register your resume.")
-        logger.error(f"Resume not found: {resume_path}")
-        return
-
-    resume_content = resume_path.read_text(encoding="utf-8")
-    if "yourhandle" in resume_content or "Alex Chen" in resume_content:
-        from progress_notifier import _post
-        _post("⚠️ **Job Hunt aborted** — resume still has placeholder content.")
-        logger.error("Resume contains placeholder content")
-        return
-
-    user_ctx = {
-        "base_resume":    resume_path,
-        "bio":            profile.get("bio", ""),
-        "candidate_name": profile.get("name", "Candidate"),
-        "pdf_prefix":     profile.get("resume_pdf_prefix", "Resume"),
-    }
-
-    # ── Per-user notify webhook ────────────────────────────────────────────────
-    notify_webhook_url: str | None = None
-    if _USE_DB and user_id:
-        try:
-            user_row = _db_mod.get_user(user_id)
-            if user_row:
-                notify_webhook_url = user_row.get("notify_webhook_url") or None
-        except Exception as e:
-            logger.warning(f"DB get_user for notify_webhook_url failed: {e}")
-    set_notify_target(webhook_url=notify_webhook_url)
-
-    # ── Per-user search config ─────────────────────────────────────────────────
-    user_search_cfg: dict | None = None
-    if _USE_DB and user_id:
-        try:
-            user_search_cfg = _db_mod.get_user_search_config(user_id)
-            if user_search_cfg:
-                cats = list(user_search_cfg.keys())
-                logger.info(f"Loaded per-user search config from DB: categories={cats}")
-        except Exception as e:
-            logger.warning(f"DB get_user_search_config failed, using global defaults: {e}")
-
-    _sde_cfg = (user_search_cfg or {}).get("sde", {})
-    _ai_cfg  = (user_search_cfg or {}).get("ai",  {})
-    scrape_kwargs: dict = {}
-    if _sde_cfg.get("keywords"):
-        scrape_kwargs["sde_keywords"] = _sde_cfg["keywords"]
-    if _ai_cfg.get("keywords"):
-        scrape_kwargs["ai_keywords"] = _ai_cfg["keywords"]
-    if _sde_cfg.get("target_count"):
-        scrape_kwargs["target_sde"] = _sde_cfg["target_count"]
-    if _ai_cfg.get("target_count"):
-        scrape_kwargs["target_ai"] = _ai_cfg["target_count"]
-
-    notify_started()
-
-    # Track run in DB if available
-    if _USE_DB and user_id:
-        try:
-            _db_mod.start_run(run_id, user_id)
-        except Exception as e:
-            logger.warning(f"DB start_run failed: {e}")
-
-    today_dir = get_user_output_dir(user_id) / _date.today().isoformat()
+    today_dir = OUTPUT_DIR / _date.today().isoformat()
     today_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Phase 1: Scrape ────────────────────────────────────────────────────────
+    # ── Phase 1: Scrape (with automatic fallback) ──────────────────────────────
     logger.info("\n📡 Phase 1: Scraping LinkedIn…")
-
-    # Load per-user seen jobs from DB; fallback to global JSON file
-    if _USE_DB and user_id:
-        try:
-            seen_set = _db_mod.get_seen_job_ids(user_id)
-            logger.info(f"Loaded {len(seen_set)} seen job IDs from DB for user {user_id[:8]}")
-        except Exception as e:
-            logger.warning(f"DB get_seen_job_ids failed, falling back to file: {e}")
-            seen_set = None
-    else:
-        seen_set = None  # get_new_jobs will load from SEEN_JOBS_FILE
-
-    selected, seen = get_new_jobs(seen=seen_set, **scrape_kwargs)
-
-    notify_scraped(len(selected))
+    selected, seen = get_new_jobs()   # already bucketed + fallback handled
 
     if not selected:
         logger.info("No new jobs found today.")
-        send_discord_report([], webhook_url=notify_webhook_url)
-        if _USE_DB and user_id:
-            try:
-                _db_mod.finish_run(run_id, int((time.time()-t_start)*1000), "done", 0, 0)
-            except Exception: pass
+        send_discord_report([])
         return
 
     logger.info(f"Proceeding with {len(selected)} jobs")
@@ -229,20 +130,16 @@ def run(user_id: str | None = None):
     logger.info(f"\n⚙️  Phase 2: Generating resumes for {len(selected)} jobs (workers={JOB_WORKERS})…")
 
     results = [None] * len(selected)
-    reporter = BatchProgressReporter(total=len(selected))
 
     with ThreadPoolExecutor(max_workers=JOB_WORKERS) as pool:
         future_to_idx = {
-            pool.submit(process_job, job, today_dir, user_ctx): i
+            pool.submit(process_job, job, today_dir): i
             for i, job in enumerate(selected)
         }
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
             try:
-                result = future.result()
-                results[idx] = result
-                label = f"{result['job']['title']} @ {result['job']['company']}"
-                reporter.job_done(label, result["success"])
+                results[idx] = future.result()
             except Exception as e:
                 job = selected[idx]
                 logger.error(f"  ❌ Exception processing {job['title']} @ {job['company']}: {e}")
@@ -250,41 +147,15 @@ def run(user_id: str | None = None):
                     "job": job, "html_path": None, "pdf_path": None,
                     "cover_letter": None, "why_company": None, "success": False,
                 }
-                reporter.job_done(f"{job['title']} @ {job['company']}", False)
-
-    reporter.close()
 
     # ── Phase 3: Persist + Notify ──────────────────────────────────────────────
+    _save_seen(SEEN_JOBS_FILE, seen)
+    logger.info(f"Saved {len(seen)} seen job IDs")
+
+    send_discord_report(results)
+
     elapsed = int(time.time() - t_start)
     ok = sum(r["success"] for r in results)
-
-    if _USE_DB and user_id:
-        try:
-            # Save per-user seen jobs to DB
-            new_job_ids = [r["job"]["job_id"] for r in results if r and r.get("job", {}).get("job_id")]
-            _db_mod.mark_jobs_seen(user_id, new_job_ids)
-            logger.info(f"Saved {len(new_job_ids)} seen job IDs to DB")
-            # Save individual results
-            for r in results:
-                if r:
-                    try:
-                        _db_mod.save_job_result(run_id, user_id, r)
-                    except Exception as e:
-                        logger.warning(f"DB save_job_result failed: {e}")
-            # Finish run record
-            status = "done" if not any(r and not r["success"] for r in results) else "done"
-            _db_mod.finish_run(run_id, elapsed * 1000, status, len(results), ok)
-        except Exception as e:
-            logger.warning(f"DB persist failed, falling back to file: {e}")
-            _save_seen(SEEN_JOBS_FILE, seen)
-    else:
-        # Fallback: save to global JSON file
-        _save_seen(SEEN_JOBS_FILE, seen)
-        logger.info(f"Saved {len(seen)} seen job IDs to file")
-
-    notify_finished(results, elapsed)
-    send_discord_report(results, webhook_url=notify_webhook_url)
-
     logger.info(f"\n✅ Done in {elapsed//60}m {elapsed%60}s — {ok}/{len(results)} jobs ready")
     logger.info(f"   Output: {today_dir}")
 

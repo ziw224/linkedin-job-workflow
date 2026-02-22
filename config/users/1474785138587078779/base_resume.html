@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Siyun Lin - Resume</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page { size: letter; margin: 0; }
+
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 9.3pt;
+      color: #1a1a1a;
+      background: #fff;
+      width: 8.5in;
+      height: 11in;
+      margin: 0 auto;
+      padding: 0.38in 0.55in;
+      line-height: 1.35;
+      overflow: hidden;
+    }
+
+    a { color: #1155CC; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    #header { text-align: center; margin-bottom: 8px; }
+    #header h1 {
+      font-size: 18pt;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    #header .contact {
+      font-size: 8.8pt;
+      color: #333;
+      margin-top: 3px;
+    }
+    #header .contact span { margin: 0 4px; color: #999; }
+
+    .section-title {
+      font-size: 9.8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      border-bottom: 1.2px solid #1a1a1a;
+      padding-bottom: 1px;
+      margin: 10px 0 5px;
+    }
+
+    .entry { margin-bottom: 6px; }
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .entry-header .left { flex: 1; }
+    .entry-header .right {
+      font-size: 8.6pt;
+      font-weight: 700;
+      white-space: nowrap;
+      margin-left: 8px;
+    }
+    .entry-org { font-weight: 700; font-size: 9.3pt; }
+    .entry-role { font-weight: 700; font-style: italic; font-size: 8.9pt; }
+
+    ul { list-style: none; padding-left: 0; margin-top: 2px; }
+    ul li {
+      padding-left: 11px;
+      position: relative;
+      margin-bottom: 2px;
+      font-size: 8.9pt;
+      line-height: 1.35;
+    }
+    ul li::before { content: "●"; position: absolute; left: 0; font-size: 7pt; top: 1px; }
+
+    #skills ul li { font-size: 8.9pt; }
+    #skills .skill-label { font-weight: 700; }
+
+    @media print {
+      html, body { width: 8.5in; height: 11in; overflow: hidden; }
+      a { color: #1155CC !important; }
+      .section-title { border-bottom-color: #000; }
+      .entry { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SECTION:HEADER -->
+<div id="header">
+  <h1>Siyun Lin</h1>
+  <div class="contact">
+    Tel: (610)810-6540
+    <span>|</span>
+    Email: <a href="mailto:lsy20020312@gmail.com">lsy20020312@gmail.com</a>
+    <span>|</span>
+    LinkedIn: <a href="https://www.linkedin.com/in/siyun-lin-2bb306255">linkedin.com/in/siyun-lin-2bb306255</a>
+  </div>
+</div>
+
+<!-- SECTION:EDUCATION -->
+<div class="section-title">Education</div>
+
+<div class="entry" id="edu-uchicago">
+  <div class="entry-header">
+    <div class="left">
+      <div class="entry-org">The University of Chicago</div>
+      <div class="entry-role">Master of Science in Applied Data Science &nbsp;|&nbsp; GPA: 4.0/4.0</div>
+    </div>
+    <div class="right">Chicago, IL &nbsp;|&nbsp; Sep 2024 – Dec 2025</div>
+  </div>
+</div>
+
+<div class="entry" id="edu-lafayette">
+  <div class="entry-header">
+    <div class="left">
+      <div class="entry-org">Lafayette College</div>
+      <div class="entry-role">B.A. Mathematics &amp; Economics, Minor in Data Science &nbsp;|&nbsp; GPA: 3.95/4.0 &nbsp;|&nbsp; Summa Cum Laude</div>
+      <div style="font-size:8.3pt;color:#444;margin-top:1px;">
+        ● Honors Thesis: Portfolio-Based Stock Performance Prediction in Quantitative Trading (SVM) &nbsp;|&nbsp; AWS Certified AI Practitioner
+      </div>
+    </div>
+    <div class="right">Easton, PA &nbsp;|&nbsp; Sep 2020 – May 2024</div>
+  </div>
+</div>
+
+<!-- SECTION:EXPERIENCE -->
+<div class="section-title">Work Experience</div>
+
+<div class="entry" id="exp-harbor-2">
+  <div class="entry-header">
+    <div class="left">
+      <div class="entry-org">Harbor Capital Advisors, Inc.</div>
+      <div class="entry-role">AI/ML Engineer Intern</div>
+    </div>
+    <div class="right">Chicago, IL &nbsp;|&nbsp; Sep 2025 – Dec 2025</div>
+  </div>
+  <ul>
+    <li data-lock="1" data-skills="aws,docker,cloud,infrastructure,ecs,fargate">Productionized an R/Shiny quantitative analytics POC into a cloud-native multi-tenant web app containerized with Docker, deployed on AWS ECS/Fargate behind an ALB using CloudFormation and ECR; enabled concurrent analyst access and standardized local/cloud runtimes.</li>
+    <li data-skills="aws,s3,data-pipeline,backend">Designed and implemented a scalable data ingestion pipeline with self-service CSV/Excel uploads via web UI and persistent storage in Amazon S3, accelerating portfolio analytics and reducing engineering bottlenecks.</li>
+    <li data-skills="data-quality,validation,python">Built automated data validation and preprocessing (schema enforcement, date normalization, range checks, missing/duplicate detection, time-series alignment) with actionable UI-level error feedback, improving data quality and downstream analytics reliability.</li>
+  </ul>
+</div>
+
+<div class="entry" id="exp-harbor-1">
+  <div class="entry-header">
+    <div class="left">
+      <div class="entry-org">Harbor Capital Advisors, Inc.</div>
+      <div class="entry-role">AI/ML Engineer Intern</div>
+    </div>
+    <div class="right">Chicago, IL &nbsp;|&nbsp; Jun 2025 – Aug 2025</div>
+  </div>
+  <ul>
+    <li data-lock="1" data-skills="automation,airflow,aws,lambda,bedrock">Built an automated reporting platform reducing turnaround from 1 week to 3 hours and eliminating 95% of manual effort; automated Tableau dashboard exports via Apache Airflow, storing reports in S3 and triggering AWS Lambda via EventBridge to analyze PDFs using AWS Bedrock (Claude).</li>
+    <li data-skills="aws,dynamodb,python,docx">Implemented a downstream Lambda process to aggregate DynamoDB results and generate Word documents with python-docx; added EventBridge email notifications with direct report links to automate client delivery.</li>
+  </ul>
+</div>
+
+<div class="entry" id="exp-huatai">
+  <div class="entry-header">
+    <div class="left">
+      <div class="entry-org">Huatai International Financial Holdings</div>
+      <div class="entry-role">Quantitative Research Intern</div>
+    </div>
+    <div class="right">Hong Kong &nbsp;|&nbsp; Jun 2024 – Aug 2024</div>
+  </div>
+  <ul>
+    <li data-lock="1" data-skills="python,mysql,quantitative-finance,ml">Engineered a MySQL-backed financial database to capture SSE 50 ETF price data; enhanced Black–Scholes option pricing by integrating implied volatility, increasing accuracy by ~8% over traditional models.</li>
+    <li data-skills="python,ml,lstm,factor-analysis">Leveraged Alphalens for multi-factor A-share stock selection; combined signals using LSTM, boosting selection accuracy by 15% vs. benchmarks and achieving 12% increase in risk-adjusted returns over 12 months.</li>
+  </ul>
+</div>
+
+<!-- SECTION:PROJECTS -->
+<div class="section-title">Projects</div>
+
+<div class="entry" id="proj-voice-ai">
+  <div class="entry-header">
+    <div class="left">
+      <div class="entry-org">Agentic Voice-to-Voice AI Assistant for E-Commerce Product Discovery</div>
+    </div>
+  </div>
+  <ul>
+    <li data-lock="1" data-skills="asr,langgraph,nlp,ai">Designed an end-to-end voice AI pipeline converting natural speech into structured intents using ASR and a LangGraph router, enabling reliable downstream planning with budget, material, and safety constraints.</li>
+    <li data-skills="chromadb,rag,vector-search,embeddings">Built a grounded private retrieval system by cleaning and embedding ~10K Amazon product records into ChromaDB with hybrid vector and metadata search, reducing hallucinations via doc-level citations.</li>
+    <li data-skills="langgraph,mcp,multi-agent,streamlit">Implemented multi-agent orchestration with LangGraph and MCP server for unified RAG + live web search; built Streamlit interface with real-time transcription, agent logs, and TTS output.</li>
+  </ul>
+</div>
+
+<div class="entry" id="proj-capstone">
+  <div class="entry-header">
+    <div class="left">
+      <div class="entry-org">Capstone – Personality-Driven Generative AI with CharacTour</div>
+    </div>
+  </div>
+  <ul>
+    <li data-lock="1" data-skills="llama,lora,fine-tuning,nlp,ml">Fine-tuned a personality-aware LLaMA-3 LLM using LoRA on 10M+ user profiles across 512 personality clusters, enabling scalable generation of personality-aligned marketing copy.</li>
+    <li data-skills="aws,sagemaker,nlp,rlhf">Built production-ready NLP pipelines on AWS SageMaker; improved generation quality using RLHF and hybrid evaluation (BLEU, perplexity, human feedback), increasing personality fidelity for personalized brand content.</li>
+  </ul>
+</div>
+
+<!-- SECTION:SKILLS -->
+<div class="section-title">Skills</div>
+<div id="skills">
+  <ul>
+    <li data-skills="python,r,sql,java"><span class="skill-label">Languages:</span> Python (Pandas, NumPy, Scikit-learn, PyTorch, Alphalens), R, SQL, Java</li>
+    <li data-skills="aws,docker,airflow,cloud"><span class="skill-label">Cloud &amp; DevOps:</span> AWS (Lambda, S3, DynamoDB, ECS/Fargate, Bedrock, SageMaker, EventBridge, CloudFormation), Docker, Apache Airflow</li>
+    <li data-skills="ml,nlp,llm,deep-learning"><span class="skill-label">ML &amp; AI:</span> Machine Learning, Deep Learning, NLP, LLMs (LLaMA, Claude), LangGraph, RAG, ChromaDB, LoRA, RLHF, A/B Testing</li>
+    <li data-skills="tableau,excel,visualization"><span class="skill-label">Data &amp; Tools:</span> Tableau, Excel (PivotTable, VBA), GitHub, MySQL, Apache Spark, Hadoop</li>
+  </ul>
+</div>
+
+</body>
+</html>

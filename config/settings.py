@@ -42,19 +42,9 @@ SEARCH_KEYWORDS       = SDE_KEYWORDS + AI_KEYWORDS
 EXPERIENCE_LEVELS     = list(set(SDE_EXPERIENCE_LEVELS + AI_EXPERIENCE_LEVELS))
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-SEEN_JOBS_FILE = ROOT / "data" / "seen_jobs.json"
-
-# Resume HTML paths — can be overridden by env vars to keep personal files
-# outside the repo (recommended for open-source setups).
-# RESUME_HTML_PATH     → your SDE/full-stack resume
-# RESUME_AI_HTML_PATH  → your AI/ML resume (falls back to RESUME_HTML_PATH if not set)
-_resume_env    = os.getenv("RESUME_HTML_PATH", "")
-_resume_ai_env = os.getenv("RESUME_AI_HTML_PATH", "")
-
-BASE_RESUME_HTML    = Path(_resume_env).expanduser()    if _resume_env    else ROOT / "resume" / "base_resume.html"
-BASE_RESUME_HTML_AI = Path(_resume_ai_env).expanduser() if _resume_ai_env else (
-    Path(_resume_env).expanduser() if _resume_env else ROOT / "resume" / "base_resume_ai.html"
-)
+SEEN_JOBS_FILE   = ROOT / "data" / "seen_jobs.json"
+BASE_RESUME_HTML    = ROOT / "resume" / "base_resume.html"
+BASE_RESUME_HTML_AI = ROOT / "resume" / "base_resume_ai.html"
 
 # Keywords in job TITLE that indicate an AI/ML Engineer role (title match → AI resume)
 AI_TITLE_KEYWORDS = [

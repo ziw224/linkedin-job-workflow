@@ -1,11 +1,10 @@
 """
 src/resume_tailor.py – Tailor the HTML resume to a specific JD using local Claude Code CLI.
 
-Uses `claude --print "..."` (Claude Code Max subscription, no API billing).
+Uses `claude -p "..."` (Claude Code Max subscription, no API billing).
 """
 import logging
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -13,25 +12,7 @@ from config.settings import BASE_RESUME_HTML, BASE_RESUME_HTML_AI, AI_ROLE_KEYWO
 
 logger = logging.getLogger(__name__)
 
-
-def _find_claude_bin() -> str:
-    """Return the path to the Claude CLI binary, or raise if not found."""
-    found = shutil.which("claude")
-    if found:
-        return found
-    for candidate in [
-        Path.home() / ".local" / "bin" / "claude",
-        Path("/usr/local/bin/claude"),
-        Path("/opt/homebrew/bin/claude"),
-    ]:
-        if candidate.exists():
-            return str(candidate)
-    raise FileNotFoundError(
-        "Claude CLI not found. Install it from https://docs.anthropic.com/en/docs/claude-code "
-        "and make sure it's on your PATH."
-    )
-
-CLAUDE_BIN = _find_claude_bin()
+CLAUDE_BIN = "/Users/zihanwang/.local/bin/claude"
 
 PROMPT_TEMPLATE = """You are an ATS optimization specialist making surgical edits to a resume for a specific job.
 Role type: {role_type}
@@ -119,23 +100,16 @@ def _is_ai_role(job: dict) -> bool:
     return any(kw in jd for kw in AI_ROLE_KEYWORDS)
 
 
-def tailor_resume(job: dict, output_dir: Path | None = None,
-                  base_resume: Path | None = None) -> Path | None:
+def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
     """
     Generate a tailored HTML resume for the given job dict via Claude CLI.
     Returns path to saved HTML file, or None on failure.
-
-    Args:
-        base_resume: override the default base resume HTML path (for multi-user support).
     """
     out_dir = output_dir if output_dir else OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ai_role = _is_ai_role(job)
-    if base_resume:
-        base = base_resume
-    else:
-        base = BASE_RESUME_HTML_AI if ai_role else BASE_RESUME_HTML
+    base    = BASE_RESUME_HTML_AI if ai_role else BASE_RESUME_HTML
     full_html = base.read_text(encoding="utf-8")
     role_type = "AI/ML Engineer" if ai_role else "Full Stack/Software Engineer"
     logger.info(f"  Detected role type: {role_type} → using {base.name}")

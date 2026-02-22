@@ -1,9 +1,0 @@
-{
-  "_comment": "EXAMPLE FILE — copy this to candidate_profile.json and replace with your own info.",
-  "name": "Alex Chen",
-  "email": "alex.chen@example.com",
-  "portfolio": "alexchen.dev",
-  "linkedin": "linkedin.com/in/alexchen",
-  "resume_pdf_prefix": "Alex Chen-Resume",
-  "bio": "Candidate: Alex Chen\nEducation: B.S. Computer Science + Mathematics, State University, May 2025. GPA 3.8/4.0. Dean's List.\nSelected Courses: Algorithms, Operating Systems, Machine Learning, Distributed Systems.\n\nResearch:\n- AI Lab @ State University (Jan 2024 – May 2025): Researched transformer-based code generation; presented at NeurIPS student workshop.\n\nWork Experience:\n- Software Engineering Intern @ Acme Corp (May–Aug 2024): Built internal tooling dashboard reducing deploy times by 40% (React, Node.js, PostgreSQL).\n- Teaching Assistant @ State University (Jan–May 2025): Graded data structures coursework, held office hours for 150+ students.\n\nKey Projects:\n- ShopTrack: Full-stack e-commerce analytics platform. Real-time inventory alerts, REST API, React dashboard. (Next.js, FastAPI, PostgreSQL, Redis).\n- DocBot: RAG-based document Q&A chatbot. Hybrid search with cross-encoder reranking. (LangChain, OpenAI API, Pinecone, FastAPI).\n\nTech Stack: Python, TypeScript, React, Next.js, FastAPI, PostgreSQL, Redis, GCP, Docker, LangChain.\n\nPortfolio: alexchen.dev\nLinkedIn: linkedin.com/in/alexchen"
-}

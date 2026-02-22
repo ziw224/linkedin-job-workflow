@@ -27,14 +27,7 @@ logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 load_dotenv(PROJECT_ROOT / ".env")
 
-import json as _json
 from config.settings import OUTPUT_DIR
-
-_profile_path = PROJECT_ROOT / "config" / "candidate_profile.json"
-_RESUME_PDF_PREFIX = "Resume"
-if _profile_path.exists():
-    with open(_profile_path) as _pf:
-        _RESUME_PDF_PREFIX = _json.load(_pf).get("resume_pdf_prefix", "Resume")
 from linkedin_scraper import scrape_with_playwright
 from resume_tailor import tailor_resume
 from pdf_generator import html_to_pdf
@@ -64,7 +57,7 @@ def main():
         logger.error("Tailoring failed.")
         return
 
-    pdf = html_to_pdf(html, f"{_RESUME_PDF_PREFIX}-{job['company']}")
+    pdf = html_to_pdf(html, f"Zihan Wang-Resume-{job['company']}")
     ok  = pdf is not None
 
     send_discord_report([{"job": job, "html_path": html, "pdf_path": pdf, "success": ok}])
