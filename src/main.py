@@ -12,6 +12,7 @@ Target: 5 SDE/Fullstack + 5 AI/ML jobs per day → 10 total
 Cron (7:30 AM daily — finishes well before 9 AM):
     0 9 * * * cd $HOME/Projects/linkedin-job-workflow && bash run.sh >> logs/cron.log 2>&1
 """
+import json
 import logging
 import re
 import sys
@@ -135,20 +136,19 @@ def run():
     logger.info(f"Proceeding with {len(selected)} jobs")
 
     # ── Save job manifest (for retry-day) ──────────────────────────────────────
-    import json as _json
     jobs_log_path = PROJECT_ROOT / "data" / f"jobs_{_date.today().isoformat()}.json"
     jobs_log_path.parent.mkdir(exist_ok=True)
     # Merge with any existing manifest (in case of multiple runs same day)
     existing = {}
     if jobs_log_path.exists():
         try:
-            for j in _json.loads(jobs_log_path.read_text()):
+            for j in json.loads(jobs_log_path.read_text()):
                 existing[j["url"]] = j
         except Exception:
             pass
     for j in selected:
         existing[j["url"]] = {k: j[k] for k in ("title","company","location","url","category","job_id") if k in j}
-    jobs_log_path.write_text(_json.dumps(list(existing.values()), ensure_ascii=False, indent=2))
+    jobs_log_path.write_text(json.dumps(list(existing.values()), ensure_ascii=False, indent=2))
     logger.info(f"Job manifest saved → {jobs_log_path.name}")
 
     # ── Phase 2: Parallel processing ──────────────────────────────────────────

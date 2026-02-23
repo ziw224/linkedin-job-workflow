@@ -141,13 +141,7 @@ def cmd_model(target: str | None = None, agent: str | None = None):
         _upsert_env_vars(env_path, {"LLM_MODE": "codex"})
         print("✅ Model set: codex (direct codex CLI)")
         return
-
-    if t == "openclaw":
-        chosen_agent = (agent or "coding").strip()
-        _upsert_env_vars(env_path, {"LLM_MODE": "openclaw", "OPENCLAW_AGENT": chosen_agent})
-        print(f"✅ Model set: openclaw (agent={chosen_agent})")
-        return
-
+    
     print(f"❌ Unknown model target: {target}")
     print("Usage: python src/cli.py model <claude|openclaw|codex> [agent]")
 

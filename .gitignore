@@ -7,3 +7,5 @@ logs/
 data/
 config/users/
 config/candidate.txt
+resume/*.pdf
+resume/*.png
