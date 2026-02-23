@@ -2,8 +2,10 @@
 src/cover_letter.py – Generate cover letter and "Why [Company]" answer via Claude CLI.
 
 Outputs two plain-text files per job:
-  - Zihan Wang-CoverLetter-{Company}.txt
-  - Zihan Wang-Why{Company}.txt
+  - {CANDIDATE_NAME}-CoverLetter-{Company}.txt
+  - {CANDIDATE_NAME}-Why{Company}.txt
+
+Personal config: set in .env or config/candidate.txt (see config/candidate.txt.example)
 """
 import logging
 import os
@@ -15,42 +17,39 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-CLAUDE_BIN = "/Users/zihanwang/.local/bin/claude"
-LLM_MODE = os.getenv("LLM_MODE", "claude").strip().lower()  # claude | codex | openclaw
+# ── LLM config (from env) ──────────────────────────────────────────────────────
+CLAUDE_BIN   = os.getenv("CLAUDE_BIN", "claude").strip()
+LLM_MODE     = os.getenv("LLM_MODE", "claude").strip().lower()   # claude | codex | openclaw
 OPENCLAW_AGENT = os.getenv("OPENCLAW_AGENT", "coding").strip() or "coding"
-CODEX_BIN = os.getenv("CODEX_BIN", "/Users/zihanwang/.nvm/versions/node/v22.12.0/bin/codex").strip()
-CODEX_MODEL = os.getenv("CODEX_MODEL", "gpt-5.3-codex").strip() or "gpt-5.3-codex"
+CODEX_BIN    = os.getenv("CODEX_BIN", "codex").strip()
+CODEX_MODEL  = os.getenv("CODEX_MODEL", "gpt-5.3-codex").strip() or "gpt-5.3-codex"
+
 # Once Claude reports quota limit in this process, skip further Claude calls.
 _CLAUDE_LIMIT_HIT = False
 _FALLBACK_LOCK = threading.Lock()
 
-# ── Candidate Background (static context) ─────────────────────────────────────
-CANDIDATE_BIO = """
-Candidate: Zihan Wang (Bella)
-Education: B.S. Computer Science + Mathematics, Lehigh University, May 2025. GPA 3.9/4.0. Dean's List.
-Selected Courses: Algorithms, Operating Systems, Machine Learning, NLP, Computer Vision.
+# ── Candidate config (from env or config/candidate.txt) ───────────────────────
+CANDIDATE_NAME      = os.getenv("CANDIDATE_NAME", "Your Name")
+CANDIDATE_EMAIL     = os.getenv("CANDIDATE_EMAIL", "your@email.com")
+CANDIDATE_PORTFOLIO = os.getenv("CANDIDATE_PORTFOLIO", "")
+CANDIDATE_LINKEDIN  = os.getenv("CANDIDATE_LINKEDIN", "")
 
-Research:
-- LUNAR Lab @ Lehigh (Jan 2024 – May 2025): Published NeurIPS 2025 workshop paper on video LLM temporal reasoning ("Video Finetuning Improves Reasoning Between Frames", CogInterp @ NeurIPS 2025).
+def _load_candidate_bio() -> str:
+    """Load bio from config/candidate.txt (gitignored), fallback to CANDIDATE_BIO env var."""
+    bio_file = Path(__file__).parent.parent / "config" / "candidate.txt"
+    if bio_file.exists():
+        return bio_file.read_text(encoding="utf-8").strip()
+    env_bio = os.getenv("CANDIDATE_BIO", "")
+    if env_bio:
+        return env_bio.strip()
+    return f"Candidate: {CANDIDATE_NAME}\n(Add your background to config/candidate.txt)"
 
-Work Experience:
-- Software Engineering Intern @ Oracle (May–Aug 2024): Extended CBDC scalability using Oracle Blockchain Tables. Added REST endpoint & UI components (Java/Spring, Oracle DB).
-- Teaching Assistant @ Lehigh (Jan–May 2025): Graded DSA coursework, held office hours.
-
-Key Projects:
-- EcoForge: Full-stack sustainability platform. RAG pipeline with hybrid search + cross-encoder reranking (LangChain, Claude API, PostgreSQL pgvector). Next.js/FastAPI. Context management for long multi-turn sessions.
-- MediScheduler: HIPAA-compliant healthcare scheduling app. Firebase Firestore + Cloud Scheduler agentic loop for conflict resolution. Full-stack (React/FastAPI).
-
-Tech Stack: Python, TypeScript, React, Next.js, FastAPI, PostgreSQL, GCP, Firebase, LangChain, Claude API, Playwright, Docker.
-
-Portfolio: zihanwang.dev
-LinkedIn: linkedin.com/in/zihanwang
-""".strip()
+CANDIDATE_BIO = _load_candidate_bio()
 
 
 # ── Prompts ────────────────────────────────────────────────────────────────────
 
-COVER_LETTER_PROMPT = """You are an expert career coach writing a cover letter for Zihan Wang.
+COVER_LETTER_PROMPT = """You are an expert career coach writing a cover letter for {candidate_name}.
 
 CANDIDATE BACKGROUND:
 {bio}
@@ -75,7 +74,7 @@ IMPORTANT:
 - Keep it under 320 words.
 """
 
-WHY_COMPANY_PROMPT = """Write a "Why do you want to work at {company}?" answer for Zihan Wang applying for {title}.
+WHY_COMPANY_PROMPT = """Write a "Why do you want to work at {company}?" answer for {candidate_name} applying for {title}.
 
 CANDIDATE BACKGROUND:
 {bio}
@@ -85,18 +84,18 @@ JOB DESCRIPTION (read carefully — the answer must stay grounded in THIS specif
 
 Follow this formula STRICTLY — 3–5 sentences total, no more:
 
-SENTENCE 1–2 (Company highlight): Pick ONE specific and concrete thing about {company} that directly relates to THE ACTUAL WORK described in the JD for this {title} role — the specific tech stack, engineering problems, team structure, or product decisions mentioned in the responsibilities/requirements section. Must come from what Zihan will actually DO day-to-day, not the company's overall product or mission. Include a specific detail that shows you actually read the JD. Keep it brief.
+SENTENCE 1–2 (Company highlight): Pick ONE specific and concrete thing about {company} that directly relates to THE ACTUAL WORK described in the JD for this {title} role — the specific tech stack, engineering problems, team structure, or product decisions mentioned in the responsibilities/requirements section. Must come from what the candidate will actually DO day-to-day, not the company's overall product or mission. Include a specific detail that shows you actually read the JD. Keep it brief.
 
 SENTENCE 2–3 (Why it matters): Explain WHY that specific thing is meaningful — what real problem does it solve, who does it affect, what's hard about it from an engineering perspective. Go one level deeper than the obvious. Show analytical thinking, not just "it's impressive."
 
-SENTENCE 3–5 (Link to You — MOST IMPORTANT): Connect that company/role strength DIRECTLY to Zihan's growth as a {title}. Be specific: what skill will she develop in THIS role at THIS company that she can't develop elsewhere? What from her background (specific projects, research, internship) makes her genuinely care about THIS engineering problem? Must feel personal and earned — NOT "I'll learn a lot" or "I'm passionate about software."
+SENTENCE 3–5 (Link to You — MOST IMPORTANT): Connect that company/role strength DIRECTLY to the candidate's growth as a {title}. Be specific: what skill will she develop in THIS role at THIS company that she can't develop elsewhere? What from her background (specific projects, research, internship) makes her genuinely care about THIS engineering problem? Must feel personal and earned — NOT "I'll learn a lot" or "I'm passionate about software."
 
 CRITICAL RULES:
-- Stay grounded in what Zihan will ACTUALLY DO in this role — if it's fullstack SWE, talk about fullstack engineering challenges; if it's backend, talk about backend; do NOT bring up AI/ML/research unless the JD explicitly lists them as job responsibilities
+- Stay grounded in what the candidate will ACTUALLY DO in this role — if it's fullstack SWE, talk about fullstack engineering challenges; if it's backend, talk about backend; do NOT bring up AI/ML/research unless the JD explicitly lists them as job responsibilities
 - If the company happens to have AI features but the role itself is fullstack/SWE, focus on the SWE engineering work, not the AI product
 - No superlatives or generic praise ("best", "leading", "innovative", "cutting-edge")
 - No facts everyone knows ("used by millions", "top company", "fast-growing")
-- The link-to-you section must name specific projects or experiences from Zihan's background
+- The link-to-you section must name specific projects or experiences from the candidate's background
 - Plain text, no markdown, no bullet points
 - Output ONLY the answer — no intro phrases, no labels
 """
@@ -218,7 +217,9 @@ Re: {title}
 Dear Hiring Manager,
 
 """
-    footer = "\n\nSincerely,\nZihan Wang\nzihan.b.wang@gmail.com | zihanwang.dev | linkedin.com/in/zihanwang\n"
+    contact_parts = [p for p in [CANDIDATE_EMAIL, CANDIDATE_PORTFOLIO, CANDIDATE_LINKEDIN] if p]
+    contact_line  = " | ".join(contact_parts)
+    footer = f"\n\nSincerely,\n{CANDIDATE_NAME}\n{contact_line}\n"
     return header + body + footer
 
 
@@ -252,6 +253,7 @@ def generate_cover_letter(job: dict, output_dir: Path) -> dict[str, Path | None]
     # ── 1. Cover Letter ────────────────────────────────────────────────────────
     logger.info(f"  Generating cover letter for {title} @ {company} …")
     cl_prompt = COVER_LETTER_PROMPT.format(
+        candidate_name=CANDIDATE_NAME,
         bio=CANDIDATE_BIO,
         title=title,
         company=company,
@@ -261,7 +263,7 @@ def generate_cover_letter(job: dict, output_dir: Path) -> dict[str, Path | None]
     cl_body = _run_claude(cl_prompt, f"cover_letter:{company}")
     if cl_body:
         full_letter = _format_cover_letter(cl_body, job)
-        cl_path = output_dir / f"Zihan Wang-CoverLetter-{company}.txt"
+        cl_path = output_dir / f"{CANDIDATE_NAME}-CoverLetter-{company}.txt"
         cl_path.write_text(full_letter, encoding="utf-8")
         logger.info(f"  ✅ Cover letter saved → {cl_path.name}")
         results["cover_letter"] = cl_path
@@ -271,6 +273,7 @@ def generate_cover_letter(job: dict, output_dir: Path) -> dict[str, Path | None]
     # ── 2. Why [Company] ──────────────────────────────────────────────────────
     logger.info(f"  Generating 'Why {company}' answer …")
     why_prompt = WHY_COMPANY_PROMPT.format(
+        candidate_name=CANDIDATE_NAME,
         company=company,
         title=title,
         bio=CANDIDATE_BIO,
@@ -278,7 +281,7 @@ def generate_cover_letter(job: dict, output_dir: Path) -> dict[str, Path | None]
     )
     why_text = _run_claude(why_prompt, f"why:{company}")
     if why_text:
-        why_path = output_dir / f"Zihan Wang-Why{company_slug}.txt"
+        why_path = output_dir / f"{CANDIDATE_NAME}-Why{company_slug}.txt"
         why_path.write_text(why_text, encoding="utf-8")
         logger.info(f"  ✅ Why-{company} saved → {why_path.name}")
         results["why_company"] = why_path

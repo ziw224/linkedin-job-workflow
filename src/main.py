@@ -10,7 +10,7 @@ Parallelization strategy:
 Target: 5 SDE/Fullstack + 5 AI/ML jobs per day → 10 total
 
 Cron (7:30 AM daily — finishes well before 9 AM):
-    30 7 * * * /Users/zihanwang/Projects/job-workflow/run.sh
+    0 9 * * * cd $HOME/Projects/linkedin-job-workflow && bash run.sh >> logs/cron.log 2>&1
 """
 import logging
 import re
@@ -36,6 +36,7 @@ from resume_tailor import tailor_resume
 from pdf_generator import html_to_pdf
 from cover_letter import generate_cover_letter
 from notifier import send_discord_report
+from notion_tracker import add_jobs_to_notion
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 LOG_DIR = PROJECT_ROOT / "logs"
@@ -84,7 +85,8 @@ def process_job(job: dict, today_dir: Path) -> dict:
     # PDF must wait for html_path
     pdf_path = None
     if html_path:
-        pdf_name = f"Zihan Wang-Resume-{job['company']}"
+        candidate_name = os.getenv("CANDIDATE_NAME", "Resume")
+        pdf_name = f"{candidate_name}-Resume-{job['company']}"
         pdf_path = html_to_pdf(html_path, pdf_name=pdf_name)
 
     success = html_path is not None and pdf_path is not None
@@ -159,6 +161,7 @@ def run():
     logger.info(f"Saved {len(seen)} seen job IDs")
 
     send_discord_report(results)
+    add_jobs_to_notion(results)
 
     elapsed = int(time.time() - t_start)
     ok = sum(r["success"] for r in results)

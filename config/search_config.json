@@ -6,11 +6,11 @@
   ],
   "sort_by": "DD",
   "_sort_by_comment": "DD = most recent first. R = most relevant.",
-  "max_days_old": 0,
+  "max_days_old": 90,
   "_max_days_old_comment": "Time limit for job search. 0 = no limit (search all available). Set to e.g. 7 or 14 to restrict to recent jobs only. When a limit is set, results are strictly filtered \u2014 no fallback expansion.",
   "max_candidates": 30,
   "_max_candidates_comment": "Max job cards to collect per scrape attempt. 2x target (15) as buffer.",
-  "job_workers": 4,
+  "job_workers": 2,
   "_job_workers_comment": "Parallel workers for resume/cover-letter generation.",
   "fallback": {
     "_comment": "Fallback is intentionally disabled. Search returns exactly what matches \u2014 no range expansion.",
@@ -33,24 +33,26 @@
         2
       ],
       "_experience_levels_comment": "1=Internship 2=Entry 3=Associate 4=Mid-Senior",
-      "target_count": 10
+      "target_count": 5
     },
     "ai": {
-      "_comment": "AI / ML Engineer roles",
+      "_comment": "AI Engineer / Agentic AI roles",
       "keywords": [
         "AI Engineer",
-        "Machine Learning Engineer"
+        "Applied AI Engineer"
       ],
       "boost_keywords": [
-        "Entry Level Machine Learning Engineer",
-        "New Grad Machine Learning Engineer",
-        "Junior ML Engineer"
+        "GenAI Engineer",
+        "Forward Deployed AI Engineer",
+        "New Grad AI Engineer",
+        "Entry Level AI Engineer"
       ],
       "experience_levels": [
         2,
-        3
+        3,
+        4
       ],
-      "_experience_levels_comment": "1=Internship 2=Entry 3=Associate 4=Mid-Senior",
+      "_experience_levels_comment": "1=Internship 2=Entry 3=Associate 4=Mid-Senior. AI Engineer roles often post at level 4 even for new grads.",
       "target_count": 5
     }
   },

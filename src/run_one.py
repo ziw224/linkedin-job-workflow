@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """One-shot: scrape 1 LinkedIn job, tailor, PDF, notify."""
 import logging
+import os
 import re
 import sys
 from datetime import date
@@ -57,7 +58,8 @@ def main():
         logger.error("Tailoring failed.")
         return
 
-    pdf = html_to_pdf(html, f"Zihan Wang-Resume-{job['company']}")
+    candidate_name = os.getenv("CANDIDATE_NAME", "Resume")
+    pdf = html_to_pdf(html, f"{candidate_name}-Resume-{job['company']}")
     ok  = pdf is not None
 
     send_discord_report([{"job": job, "html_path": html, "pdf_path": pdf, "success": ok}])

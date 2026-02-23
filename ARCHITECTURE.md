@@ -85,10 +85,10 @@ job-workflow-oss/
 
 ```yaml
 # config/profiles/zihan.yaml
-name: "Zihan Wang"
-email: "zihan.b.wang@gmail.com"
+name: "Your Name"
+email: "your@email.com"
 linkedin: "linkedin.com/in/yourhandle"
-resume_prefix: "Zihan Wang-Resume"
+resume_prefix: "YourName-Resume"
 
 # 简历路径（相对于项目根目录）
 resumes:

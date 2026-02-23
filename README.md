@@ -1,18 +1,20 @@
 # 🔍 LinkedIn Job-Hunt Workflow
 
 Automated daily pipeline:
-1. **Search LinkedIn** for entry-level Software/Full-Stack Engineer roles in SF & Remote
-2. **Tailor the HTML resume** to each JD using Claude AI
-3. **Generate a PDF** from the tailored HTML
+1. **Scrape LinkedIn** for entry-level SDE / AI Engineer roles (configurable)
+2. **Tailor the HTML resume** to each JD using an LLM (Claude / Codex)
+3. **Generate a PDF** from the tailored HTML via Playwright
 4. **Notify via Discord** with a job summary
+5. **Log to Notion** — each job added to your tracker as "Not started"
 
 ---
 
 ## Setup
 
-### 1. Install dependencies
+### 1. Clone & install dependencies
 ```bash
-cd ~/Projects/job-workflow
+git clone https://github.com/ziw224/linkedin-job-workflow.git
+cd linkedin-job-workflow
 pip install -r requirements.txt
 playwright install chromium
 ```
@@ -20,27 +22,33 @@ playwright install chromium
 ### 2. Configure credentials
 ```bash
 cp .env.example .env
-# Edit .env and fill in:
-#   LINKEDIN_EMAIL    – your LinkedIn email
-#   LINKEDIN_PASSWORD – your LinkedIn password
-#   ANTHROPIC_API_KEY – from console.anthropic.com
+# Fill in .env — see .env.example for all required vars
 ```
 
-### 3. Run manually
+### 3. Add your candidate profile
 ```bash
-cd ~/Projects/job-workflow
+cp config/candidate.txt.example config/candidate.txt
+# Edit config/candidate.txt with your real background
+# This file is gitignored — your personal info stays local
+```
+
+### 4. Add your base resume
+Put your resume HTML at `resume/base_resume.html` (see `resume/` for the expected format).
+
+### 5. Run manually
+```bash
 python src/main.py
 ```
 
-Tailored resumes appear in `resume/output/` as both `.html` and `.pdf`.
+Tailored resumes appear in `resume/output/YYYY-MM-DD/{Company}/`.
 
-### 4. Set up daily cron (9 AM)
+### 6. Set up daily cron (9 AM)
 ```bash
 crontab -e
 ```
-Add this line (adjust python path with `which python3`):
+Add:
 ```
-0 9 * * * cd /Users/zihanwang/Projects/job-workflow && /usr/bin/python3 src/main.py >> logs/workflow.log 2>&1
+0 9 * * * cd $HOME/Projects/linkedin-job-workflow && bash run.sh >> logs/cron.log 2>&1
 ```
 
 ---
@@ -48,48 +56,60 @@ Add this line (adjust python path with `which python3`):
 ## Project Structure
 
 ```
-job-workflow/
-├── resume/
-│   ├── base_resume.html        # Master resume (HTML, edit this)
-│   └── output/                 # Tailored resumes per job
-│       ├── 1234_Stripe_SWE.html
-│       └── 1234_Stripe_SWE.pdf
 ├── src/
 │   ├── main.py                 # Orchestrator
-│   ├── linkedin_scraper.py     # Job search (API + Playwright fallback)
-│   ├── resume_tailor.py        # Claude-powered resume tailoring
+│   ├── linkedin_scraper.py     # LinkedIn search via Playwright
+│   ├── resume_tailor.py        # LLM-powered resume tailoring
+│   ├── cover_letter.py         # Cover letter + "Why Company" generation
 │   ├── pdf_generator.py        # HTML → PDF via Playwright
-│   └── notifier.py             # Discord notification
+│   ├── notifier.py             # Discord webhook notifications
+│   └── notion_tracker.py       # Notion DB integration
 ├── config/
-│   └── settings.py             # Keywords, locations, limits
+│   ├── search_config.json      # Keywords, locations, targets
+│   ├── candidate.txt           # Your background (gitignored)
+│   └── candidate.txt.example   # Template
+├── resume/
+│   ├── base_resume.html        # Master resume (edit this)
+│   └── output/                 # Tailored resumes per job (gitignored)
 ├── data/
-│   └── seen_jobs.json          # Dedup tracker
-├── logs/
-│   └── workflow.log            # Run logs
+│   └── seen_jobs.json          # Dedup tracker (gitignored)
+├── logs/                       # Run logs (gitignored)
 ├── .env                        # Your secrets (gitignored)
-├── .env.example
+├── .env.example                # Template
 └── requirements.txt
 ```
 
 ---
 
-## Customizing
+## Customizing Search
 
-**Change job keywords** → edit `config/settings.py`:
-```python
-SEARCH_KEYWORDS = ["Software Engineer", "Full Stack Engineer", ...]
-SEARCH_LOCATIONS = ["San Francisco, CA", "Remote"]
+Edit `config/search_config.json`:
+```json
+{
+  "locations": ["San Francisco, CA", "Remote"],
+  "categories": {
+    "sde": { "keywords": ["Software Engineer", "Full Stack Engineer"], "target_count": 6 },
+    "ai":  { "keywords": ["AI Engineer", "Applied AI Engineer"],       "target_count": 4 }
+  }
+}
 ```
 
-**Update base resume** → edit `resume/base_resume.html`
+---
 
-**Change daily limit** → `MAX_JOBS_PER_RUN = 20` in `config/settings.py`
+## LLM Backends
+
+Set `LLM_MODE` in `.env`:
+- `claude` — Claude CLI (Max subscription, no API billing)
+- `codex` — OpenAI Codex CLI
+- `openclaw` — OpenClaw local agent
 
 ---
 
 ## Notes
 
-- LinkedIn unofficial API (`linkedin-api`) may occasionally hit rate limits – the scraper adds polite delays automatically.
-- If the API fails, Playwright-based scraping kicks in as fallback.
-- Claude tailors resumes by reordering/rewording bullets; it will **never fabricate** experience.
-- The `seen_jobs.json` file ensures the same job is never processed twice.
+- `seen_jobs.json` ensures each job is processed only once. Reset with:
+  ```bash
+  echo '{"seen_ids": []}' > data/seen_jobs.json
+  ```
+- Claude tailors resumes with minimal edits — it will **never fabricate** experience.
+- Notion integration requires a Notion Internal Integration token + DB ID in `.env`.
