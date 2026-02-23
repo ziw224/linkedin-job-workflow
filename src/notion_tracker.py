@@ -14,7 +14,29 @@ from datetime import date
 logger = logging.getLogger(__name__)
 
 
-def add_jobs_to_notion(results: list[dict]) -> None:
+def _url_exists(notion, db_id: str, url: str) -> bool:
+    """Check if a job URL already exists in the Notion DB."""
+    if not url:
+        return False
+    try:
+        res = notion.databases.query(
+            database_id=db_id,
+            filter={"property": "URL", "url": {"equals": url}},
+        )
+        return len(res.get("results", [])) > 0
+    except Exception as e:
+        logger.warning(f"  Notion dedup check failed: {e}")
+        return False  # fail open — allow insert
+
+
+def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
+    """Add jobs to Notion tracker.
+
+    Args:
+        results:      List of result dicts from process_job().
+        only_success: If True (default), only add jobs where resume was successfully generated.
+                      Set False to add all scraped jobs regardless of resume status.
+    """
     token = os.getenv("NOTION_TOKEN", "")
     db_id = os.getenv("NOTION_DB_ID", "")
 
@@ -29,17 +51,30 @@ def add_jobs_to_notion(results: list[dict]) -> None:
         return
 
     notion = Client(auth=token)
-    today = date.today().isoformat()  # e.g. "2026-02-22"
+    today = date.today().isoformat()
 
-    ok, failed = 0, 0
+    ok, failed, skipped = 0, 0, 0
     for r in results:
         job = r.get("job", {})
         if not job:
             continue
+
+        # Skip failed jobs unless caller opts in
+        if only_success and not r.get("success", False):
+            logger.info(f"  ⏭️  Skipping Notion (resume failed): {job.get('title')} @ {job.get('company')}")
+            skipped += 1
+            continue
+
         title   = job.get("title", "")
         company = job.get("company", "")
         url     = job.get("url") or None
-        loc     = job.get("location", "").split(",")[0].strip()  # "San Francisco, CA" → "San Francisco"
+        loc     = job.get("location", "").split(",")[0].strip()
+
+        # Dedup by URL
+        if url and _url_exists(notion, db_id, url):
+            logger.info(f"  ⏭️  Already in Notion: {title} @ {company}")
+            skipped += 1
+            continue
 
         try:
             props = {
@@ -63,9 +98,8 @@ def add_jobs_to_notion(results: list[dict]) -> None:
                 },
             }
 
-            # Remove None-valued properties (Notion rejects null selects)
+            # Remove None-valued properties
             props = {k: v for k, v in props.items() if v is not None}
-            # Also strip url if empty
             if "URL" in props and props["URL"]["url"] is None:
                 del props["URL"]
 
@@ -80,4 +114,4 @@ def add_jobs_to_notion(results: list[dict]) -> None:
             failed += 1
             logger.warning(f"  ❌ Notion failed [{title} @ {company}]: {e}")
 
-    logger.info(f"Notion sync — {ok} added, {failed} failed")
+    logger.info(f"Notion sync — {ok} added, {skipped} skipped, {failed} failed")

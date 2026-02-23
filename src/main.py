@@ -178,7 +178,7 @@ def run():
     logger.info(f"Saved {len(seen)} seen job IDs")
 
     send_discord_report(results)
-    add_jobs_to_notion(results)
+    add_jobs_to_notion(results, only_success=False)  # add all scraped jobs; dedup prevents duplicates on retry
 
     elapsed = int(time.time() - t_start)
     ok = sum(r["success"] for r in results)
