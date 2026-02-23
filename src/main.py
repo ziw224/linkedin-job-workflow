@@ -147,7 +147,7 @@ def run():
         except Exception:
             pass
     for j in selected:
-        existing[j["url"]] = {k: j[k] for k in ("title","company","location","url","category") if k in j}
+        existing[j["url"]] = {k: j[k] for k in ("title","company","location","url","category","job_id") if k in j}
     jobs_log_path.write_text(_json.dumps(list(existing.values()), ensure_ascii=False, indent=2))
     logger.info(f"Job manifest saved → {jobs_log_path.name}")
 

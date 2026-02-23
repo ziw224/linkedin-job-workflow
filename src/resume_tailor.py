@@ -132,7 +132,7 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
 
     jd = job.get("description", "").strip()
     if not jd:
-        logger.warning(f"  Job {job['job_id']} has empty description – using title/company as hint.")
+        logger.warning(f"  Job {job.get('job_id', job.get('url','?'))} has empty description – using title/company as hint.")
         jd = f"Role: {job['title']} at {job['company']}, {job['location']}."
 
     # Mark first bullet of each experience with data-lock="1" so Claude can't move it
@@ -248,7 +248,9 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
 
     # Save HTML
     company_slug = _sanitize(job['company'])
-    fname        = f"{job['job_id']}_{company_slug}"
+    # job_id may be missing when called from retry-day; fall back to ID from URL
+    job_id = job.get("job_id") or (job.get("url", "").rstrip("/").split("/")[-1]) or "0"
+    fname        = f"{job_id}_{company_slug}"
     html_path    = out_dir / f"{fname}.html"
     html_path.write_text(tailored_html, encoding="utf-8")
     logger.info(f"  ✅ Saved → {html_path.name}")
