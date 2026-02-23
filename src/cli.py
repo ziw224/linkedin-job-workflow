@@ -253,7 +253,89 @@ def cmd_retry(url: str, title: str = "", company: str = "", location: str = "San
     logging.info(f"Output: {today_dir / _re.sub(r'[^a-zA-Z0-9_-]', '_', job['company'])}")
 
 
-COMMANDS = {"scrape": cmd_scrape, "run": cmd_run, "retry": cmd_retry, "status": cmd_status, "model": cmd_model}
+def cmd_retry_day(day: str | None = None):
+    """Re-run pipeline for all failed jobs on a given day.
+
+    Reads data/jobs_YYYY-MM-DD.json (saved automatically each run),
+    checks which companies have no PDF in resume/output/YYYY-MM-DD/,
+    and re-processes those jobs.
+
+    Usage:
+      python src/cli.py retry-day             # today
+      python src/cli.py retry-day 2026-02-23  # specific date
+    """
+    import json as _json
+    import re as _re
+    from config.settings import OUTPUT_DIR
+    from main import process_job
+    from notion_tracker import add_jobs_to_notion
+
+    target_date = day or date.today().isoformat()
+    manifest_path = PROJECT_ROOT / "data" / f"jobs_{target_date}.json"
+
+    if not manifest_path.exists():
+        logging.error(f"No job manifest found for {target_date}: {manifest_path}")
+        logging.info("Hint: manifests are saved automatically starting from the next run.")
+        return
+
+    jobs = _json.loads(manifest_path.read_text())
+    today_dir = OUTPUT_DIR / target_date
+    today_dir.mkdir(parents=True, exist_ok=True)
+
+    # Find failed jobs: output dir missing or has no PDF
+    failed = []
+    for job in jobs:
+        company_slug = _re.sub(r"[^a-zA-Z0-9_-]", "_", job["company"])
+        comp_dir = today_dir / company_slug
+        has_pdf = comp_dir.exists() and any(f.suffix == ".pdf" for f in comp_dir.iterdir())
+        if not has_pdf:
+            failed.append(job)
+
+    if not failed:
+        logging.info(f"✅ All jobs for {target_date} already succeeded — nothing to retry.")
+        return
+
+    logging.info(f"Found {len(failed)} failed jobs for {target_date}, re-running…")
+    for j in failed:
+        logging.info(f"  → {j['title']} @ {j['company']}")
+
+    results = []
+    for job in failed:
+        # If no description cached, fetch from LinkedIn
+        if not job.get("description"):
+            logging.info(f"Fetching JD for {job['title']} @ {job['company']}…")
+            try:
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as pw:
+                    browser = pw.chromium.launch(headless=True)
+                    page = browser.new_page()
+                    page.goto(job["url"], timeout=30_000)
+                    page.wait_for_timeout(2000)
+                    description = ""
+                    for sel in [".show-more-less-html__markup", "#job-details", ".description__text"]:
+                        el = page.query_selector(sel)
+                        if el:
+                            description = el.inner_text().strip()
+                            break
+                    browser.close()
+                job["description"] = description
+            except Exception as e:
+                logging.warning(f"  JD fetch failed: {e} — continuing without JD")
+                job["description"] = ""
+
+        result = process_job(job, today_dir)
+        results.append(result)
+        status = "✅" if result["success"] else "❌"
+        logging.info(f"  {status} {job['title']} @ {job['company']}")
+
+    ok = sum(r["success"] for r in results)
+    logging.info(f"\nDone — {ok}/{len(results)} jobs succeeded")
+
+    if results:
+        add_jobs_to_notion([r for r in results if r["success"]])
+
+
+COMMANDS = {"scrape": cmd_scrape, "run": cmd_run, "retry": cmd_retry, "retry-day": cmd_retry_day, "status": cmd_status, "model": cmd_model}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -284,5 +366,8 @@ if __name__ == "__main__":
             else:
                 i += 1
         cmd_retry(url, **kwargs)
+    elif cmd == "retry-day":
+        day = sys.argv[2] if len(sys.argv) > 2 else None
+        cmd_retry_day(day)
     else:
         COMMANDS[cmd]()
