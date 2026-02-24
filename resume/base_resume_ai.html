@@ -3,23 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Zihan Wang - Resume (AI Engineer)</title>
+  <title>Zihan Wang - Resume</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    @page { size: letter; margin: 0; }
+    /* PDF-safe page settings (prevents bottom clipping) */
+    @page { size: letter; margin: 0.5in; }
+
+    html, body { background: #fff; }
 
     body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-family: "Helvetica Neue", Arial, sans-serif;
       font-size: 9.3pt;
       color: #1a1a1a;
-      background: #fff;
-      width: 8.5in;
-      height: 11in;
+      line-height: 1.34;
+
+      /* Content area = 8.5x11 minus margins (0.5in each side) */
+      width: 7.5in;
       margin: 0 auto;
-      padding: 0.38in 0.55in;
-      line-height: 1.35;
-      overflow: hidden;
+
+      /* IMPORTANT: no fixed height + no overflow hidden */
+      padding: 0;
+      overflow: visible;
+
+      /* extra safety space to avoid last-line clipping on some print pipelines */
+      padding-bottom: 0.12in;
+
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     a { color: #1155CC; text-decoration: none; }
@@ -31,27 +42,37 @@
     #header .contact span { margin: 0 4px; color: #999; }
 
     .section-title {
-      font-size: 9.8pt; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.7px; border-bottom: 1.2px solid #1a1a1a;
-      padding-bottom: 1px; margin: 10px 0 5px;
+      font-size: 9.8pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      border-bottom: 1.2px solid #1a1a1a;
+      padding-bottom: 1px;
+      margin: 10px 0 5px;
     }
 
     .entry { margin-bottom: 6px; }
-    .entry-header { display: flex; justify-content: space-between; align-items: baseline; }
-    .entry-header .left { flex: 1; }
-    .entry-header .right { font-size: 8.6pt; font-weight: 700; white-space: nowrap; margin-left: 8px; }
+    .entry-header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .entry-header .left { flex: 1; min-width: 0; }
+    .entry-header .right { font-size: 8.6pt; font-weight: 700; white-space: nowrap; }
     .entry-org { font-weight: 700; font-size: 9.3pt; }
     .entry-role { font-weight: 700; font-style: italic; font-size: 8.9pt; }
 
     ul { list-style: none; padding-left: 0; margin-top: 2px; }
-    ul li { padding-left: 11px; position: relative; margin-bottom: 2px; font-size: 8.9pt; line-height: 1.35; }
+    ul li {
+      padding-left: 11px;
+      position: relative;
+      margin-bottom: 2px;
+      font-size: 8.9pt;
+      line-height: 1.34;
+    }
     ul li::before { content: "●"; position: absolute; left: 0; font-size: 7pt; top: 1px; }
 
     #skills ul li { font-size: 8.9pt; }
     #skills .skill-label { font-weight: 700; }
 
+    /* Print tweaks */
     @media print {
-      html, body { width: 8.5in; height: 11in; overflow: hidden; }
       a { color: #1155CC !important; }
       .section-title { border-bottom-color: #000; }
       .entry { page-break-inside: avoid; }
@@ -60,7 +81,7 @@
 </head>
 <body>
 
-<!-- SECTION:HEADER -->
+<!-- HEADER -->
 <div id="header">
   <h1>Zihan Wang</h1>
   <div class="contact">
@@ -74,7 +95,7 @@
   </div>
 </div>
 
-<!-- SECTION:EDUCATION -->
+<!-- EDUCATION -->
 <div class="section-title">Education</div>
 
 <div class="entry" id="edu-brown">
@@ -83,10 +104,10 @@
       <div class="entry-org">Brown University</div>
       <div class="entry-role">Master of Computer Science (Sc.M.), AI/ML Pathway</div>
       <div style="font-size:8.3pt;color:#444;margin-top:1px;">
-        ● Selected Courses: Software Engineering, High-Performance Computing, Computer Network, Natural Language Processing, Computer Vision, Deep Learning, Self-Supervised Learning
+        ● Selected Courses: Software Engineering, High-Performance Computing, Computer Networks, NLP, Computer Vision, Deep Learning, Self-Supervised Learning
       </div>
     </div>
-    <div class="right">Providence, RI &nbsp;|&nbsp; Expected May, 2026</div>
+    <div class="right">Providence, RI &nbsp;|&nbsp; Expected May 2026</div>
   </div>
 </div>
 
@@ -95,18 +116,18 @@
     <div class="left">
       <div class="entry-org">Lehigh University</div>
       <div class="entry-role" style="white-space:nowrap;font-size:8.4pt;">
-        <strong>Bachelor of Science (BS),</strong> Computer Science and Business Honors Program, Minor in Data Science (GPA: 3.79)
+        <strong>B.S.</strong> Computer Science & Business Honors Program, Minor in Data Science (GPA: 3.79)
       </div>
       <div style="font-size:8.3pt;color:#444;margin-top:1px;white-space:nowrap;">
-        ● Selected Courses: Database Systems and Applications, Web System Programming, Operating Systems
+        ● Selected Courses: Database Systems, Web System Programming, Operating Systems
       </div>
     </div>
     <div class="right">Bethlehem, PA &nbsp;|&nbsp; 2024</div>
   </div>
 </div>
 
-<!-- SECTION:EXPERIENCE -->
-<div class="section-title">Work Experiences</div>
+<!-- EXPERIENCE -->
+<div class="section-title">Experience</div>
 
 <div class="entry" id="exp-ecoforge">
   <div class="entry-header">
@@ -117,23 +138,23 @@
     <div class="right">Boston, MA &nbsp;|&nbsp; Dec 2024 - Present</div>
   </div>
   <ul>
-    <li data-skills="langchain,rag,agent,vector-db,embeddings,hybrid-search,reranking,ai">
-      Built production-grade <strong>AI agent</strong> (<strong>LangChain</strong>, <strong>GPT-4o</strong>) with a two-stage <strong>RAG</strong> pipeline: (1) <strong>hybrid retrieval</strong> combining dense vector search and BM25 over 50+ plant datasets, followed by a <strong>cross-encoder re-ranker</strong> to improve retrieval precision; (2) <strong>semantic chunking</strong> with sliding-window context stitching to stay within the LLM context window, achieving &lt;2s end-to-end latency.
+    <li>
+      Built a production AI agent (LangChain, GPT-4o) with a two-stage RAG pipeline: hybrid retrieval (dense vectors + BM25) over 50+ plant datasets and cross-encoder re-ranking, plus semantic chunking with context stitching for <strong>&lt;2s</strong> end-to-end latency.
     </li>
-    <li data-skills="context,prompt-engineering,rag,agent,tool-use">
-      Engineered <strong>context management</strong> layer handling dynamic context assembly — prioritizing recent sensor readings, compressing historical records via summarization, and injecting domain-specific plant metadata into structured prompts — enabling the agent to deliver grounded, hallucination-resistant parameter recommendations.
+    <li>
+      Engineered a context management layer that assembles grounded prompts from real-time sensor signals, summarized historical records, and structured plant metadata, reducing hallucinations and improving recommendation stability in multi-step workflows.
     </li>
-    <li data-skills="system-design,distributed-systems,ai,python,architecture,ml-ops">
-      Architected <strong>multi-agent orchestration systems</strong> coordinating data ingestion pipelines, model inference services, and real-time decision layers, achieving 99.9% system availability across production manufacturing environments.
+    <li>
+      Architected and deployed a distributed AI platform for manufacturing optimization with <strong>99.9%</strong> availability, coordinating ingestion pipelines, inference services, and real-time decision layers with automated health checks and failover.
     </li>
-    <li data-skills="react,fastapi,python,websocket,rest-api,javascript">
-      Built full-stack application using <strong>ES6 React.js</strong> and <strong>FastAPI (Python) backend</strong> with authenticated RESTful APIs and WebSocket connections for real-time streaming of 100+ manufacturing metrics.
+    <li>
+      Built a full-stack web app using <strong>React</strong> and <strong>FastAPI</strong> with authenticated REST APIs and WebSockets to stream 100+ manufacturing metrics in real time; iterated with users on dashboards and operator workflows.
     </li>
-    <li data-skills="mysql,database,distributed-systems,backend,infrastructure">
-      Designed scalable data infrastructure using <strong>MySQL</strong> with sub-millisecond query performance, implementing <strong>distributed orchestration systems</strong> to ensure reliable data flow between frontend clients, ML models, and third-party services.
+    <li>
+      Designed scalable MySQL data infrastructure with sub-millisecond query performance and reliable data flow across clients, ML services, and third-party systems via orchestration + heartbeat monitoring.
     </li>
-    <li data-skills="ci-cd,devops,deployment,version-control,ml-ops">
-      Implemented <strong>CI/CD pipelines</strong> with tag-based version control and isolated production/testing environments, enabling rapid model deployment with rollback capabilities and structured performance monitoring.
+    <li>
+      Implemented CI/CD with tag-based versioning and isolated prod/test environments, enabling rapid model + backend deployment with rollback and structured monitoring.
     </li>
   </ul>
 </div>
@@ -144,69 +165,98 @@
       <div class="entry-org">LUNAR Lab, Brown University</div>
       <div class="entry-role">Research Assistant, <span style="font-weight:400;">advised by Ellie Pavlick</span></div>
     </div>
-    <div class="right">Boston, MA &nbsp;|&nbsp; Dec 2024 - Present</div>
+    <div class="right">Providence, RI &nbsp;|&nbsp; Dec 2024 - Present</div>
   </div>
   <ul>
-    <li data-skills="video-llm,llm,ml,research,explainability,performance">
-      Researched emergent properties of <strong>Video Large Language Models (Video LLMs)</strong> to improve ML pipeline explainability and performance optimization.
+    <li>
+      Studied emergent properties and evaluation of <strong>Video LLMs</strong>; ran controlled experiments on EgoSchema (frame/text shuffles) to benchmark image-vs-video model performance on long-form video QA.
     </li>
-    <li data-skills="experiment,egoschema,image-llm,video-llm,benchmark,qa">
-      Developed and executed control experiments on <strong>EgoSchema</strong> (e.g., shuffling frames and shuffling text infills) to benchmark and compare <strong>Image LLMs</strong> and <strong>Video LLMs</strong> performance on long-form video question-answering tasks.
+    <li>
+      Implemented AnyRes for multi-image/video settings to reduce token usage and improved data processing via visual chain-of-thought style infill generation between frame pairs.
     </li>
-    <li data-skills="anyres,llava,multi-image,chain-of-thought,token,data-processing">
-      Implemented <strong>AnyRes</strong> technique in multi-image scenarios, enabling <strong>LLaVA-NeXT-Image</strong> to process videos with fewer tokens, and utilized visual <strong>Chain-of-Thought</strong> to generate automated text infills between frame pairs for enhanced data processing efficiency.
-    </li>
-    <li data-skills="research,paper,neurips,video-finetuning,reasoning">
-      Co-authored research paper <em>"Video Finetuning Improves Reasoning Between Frames"</em> accepted to CogInterp workshop at <strong>NeurIPS 2025</strong>. [<a href="https://arxiv.org/abs/2511.12868">paper</a>]
+    <li>
+      Co-authored <em>"Video Finetuning Improves Reasoning Between Frames"</em> (CogInterp @ NeurIPS 2025).
+      <a href="https://arxiv.org/abs/2511.12868">paper</a>
     </li>
   </ul>
 </div>
 
-<!-- SECTION:PROJECTS -->
-<div class="section-title">Relevant Experiences</div>
+<!-- PROJECTS -->
+<div class="section-title">Projects</div>
+
+<div class="entry" id="proj-agent">
+  <div class="entry-header">
+    <div class="left">
+      <div class="entry-org">Job Search + Skills Exploration Agent (Personal Project)</div>
+    </div>
+  </div>
+  <ul>
+    <li>
+      Built an agentic workflow that searches job postings, extracts structured requirements (skills, seniority, location/visa constraints) into schema-validated JSON, and clusters gaps into a prioritized learning plan using tool-calling, retries, and deterministic post-processing for robustness.
+    </li>
+    <li>
+      Added retrieval + persistence by storing user preferences and past analyses (targets, locations, tech stack) and using embedding-based similarity to reuse prior outputs, reducing repeated work across sessions and improving consistency.
+    </li>
+    <li>
+      Implemented guardrails and lightweight evaluation: maintained a small offline set of postings to measure extraction correctness/hallucination rate, and added validation + fallbacks to prevent malformed outputs before packaging/publishing via OpenAI Agents SDK + CLI.
+    </li>
+  </ul>
+</div>
 
 <div class="entry" id="proj-medischeduler">
   <div class="entry-header">
     <div class="left">
-      <div class="entry-org">MediScheduler &mdash; Agentic Medication Scheduling System (SDE Course Project, Fall '25)</div>
+      <div class="entry-org">MediScheduler — Agentic Medication Scheduling System (SDE Course Project, Fall ’25)</div>
     </div>
   </div>
   <ul>
-    <li data-skills="agent,firebase,cloud-functions,firestore,scheduler,loop,reasoning">
-      Deployed an <strong>agentic scheduling loop</strong> on <strong>Firebase Cloud Functions</strong>: a <strong>Firestore-triggered function</strong> activates on new medication entries, queries FDA drug interaction data and patient constraints to autonomously plan and create <strong>Google Calendar</strong> events; a separate <strong>Cloud Scheduler</strong> function polls Firestore interaction records hourly, marks tasks as completed on confirmation, and re-invokes the agent to reschedule missed doses.
+    <li>
+      Deployed an event-driven scheduling loop on Firebase Cloud Functions: Firestore-triggered function parses new medication entries, queries FDA interaction data, and generates a constraint-satisfying plan (dosage windows, spacing, conflicts), then syncs events to Google Calendar API with idempotent upserts.
     </li>
-    <li data-skills="graphql,dao,dto,firestore,backend,api">
-      Implemented <strong>GraphQL</strong> for flexible client-side data querying and structured the backend with <strong>DAO/DTO</strong> pattern to decouple Firestore persistence from API response formatting, enabling clean agent-readable state management.
+    <li>
+      Built a recovery + feedback mechanism with Cloud Scheduler: hourly polling checks completion confirmations, updates adherence state, and re-invokes the agent to reschedule missed doses while preserving constraints (sleep hours, max daily frequency, interaction rules).
     </li>
-    <li data-skills="nextjs,typescript,frontend,ui,react">
-      Built <strong>TypeScript/Next.js</strong> frontend with interactive task checklists and schedule visualizations that reflect real-time agent-generated medication plans with granular privacy controls.
-    </li>
-    <li data-skills="firebase-auth,authorization,security,access-control">
-      Implemented <strong>Firebase Authentication</strong> with <strong>multi-layered authorization</strong>, enabling fine-grained access control over agent-managed medication and personal data endpoints.
+    <li>
+      Designed clean, agent-readable state with GraphQL + DAO/DTO to separate persistence from API shape; built a Next.js UI with real-time checklists, “why this time” explanations/audit trail, and granular privacy controls via Firebase Auth + role-based rules.
     </li>
   </ul>
 </div>
 
-<!-- Oracle project removed for AI Engineer version -->
+<div class="entry" id="proj-oracle-cbdc">
+  <div class="entry-header">
+    <div class="left">
+      <div class="entry-org">Oracle CBDC Wallet + Admin Dashboard (Oracle Sponsored Open-Source Project, Fall ’23)</div>
+    </div>
+  </div>
+  <ul>
+    <li>
+      Built a React/Redux wallet UI for visualizing UTXO transaction audit trails and an admin dashboard for throughput benchmarking; added asynchronous RTK queries for near real-time monitoring with a 3s batch window.
+    </li>
+    <li>
+      Published Oracle blog post on scaling CBDC resilience with Oracle Database Blockchain Tables.
+      <a href="https://blogs.oracle.com/blockchain/extending-cbdc-scalability-and-resilience-with-oracle-database-blockchain-tables">blog</a>
+    </li>
+  </ul>
+</div>
 
-<!-- SECTION:SKILLS -->
-<div class="section-title">Techstack</div>
+<!-- SKILLS -->
+<div class="section-title">Tech Stack</div>
 <div id="skills">
   <ul>
-    <li data-skills="python,java,cpp,sql,rust">
-      <span class="skill-label">Languages:</span> Python, Java, C/C++, SQL, Rust
+    <li>
+      <span class="skill-label">Languages:</span> Python, Java, C/C++, SQL, Rust, JavaScript, TypeScript
     </li>
-    <li data-skills="langchain,openai,vllm,rag,vector-db,agent,llm">
-      <span class="skill-label">AI / LLM:</span> LangChain, OpenAI Agents SDK, vLLM, RAG, Vector Embeddings, Agent Orchestration
+    <li>
+      <span class="skill-label">AI / Agents:</span> LangChain, OpenAI Agents SDK, Tool Calling, RAG, Embeddings, Hybrid Retrieval (BM25 + Vectors), Re-ranking, vLLM
     </li>
-    <li data-skills="fastapi,nodejs,mysql,rest-api,websocket,apache-spark">
-      <span class="skill-label">Backend &amp; DB:</span> FastAPI, Node.js, MySQL, RESTful APIs, WebSockets, Apache Spark
+    <li>
+      <span class="skill-label">Backend &amp; Data:</span> FastAPI, Node.js, REST APIs, WebSockets, MySQL, Firestore, GraphQL, Apache Spark
     </li>
-    <li data-skills="javascript,typescript,react,nextjs,tailwind">
-      <span class="skill-label">Frontend:</span> JavaScript, TypeScript, React, Next.js, Tailwind CSS
+    <li>
+      <span class="skill-label">Frontend:</span> React, Next.js, HTML/CSS, Tailwind CSS, Redux
     </li>
-    <li data-skills="git,docker,firebase,ci-cd,linux">
-      <span class="skill-label">Tools:</span> Git, Docker, Firebase, CI/CD, Linux
+    <li>
+      <span class="skill-label">Infra/Tools:</span> Git, Docker, Firebase (Auth/Functions/Scheduler), CI/CD, Linux
     </li>
   </ul>
 </div>
