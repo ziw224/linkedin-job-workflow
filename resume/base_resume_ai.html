@@ -188,18 +188,18 @@
 <div class="entry" id="proj-agent">
   <div class="entry-header">
     <div class="left">
-      <div class="entry-org">Job Search + Skills Exploration Agent (Personal Project)</div>
+      <div class="entry-org">Automated Job-Search Agent Pipeline (Personal Project, OpenClaw + Codex)</div>
     </div>
   </div>
   <ul>
     <li>
-      Built an agentic workflow that searches job postings, extracts structured requirements (skills, seniority, location/visa constraints) into schema-validated JSON, and clusters gaps into a prioritized learning plan — using tool-calling, retries, and deterministic post-processing to ensure reliability.
+      Built an end-to-end agentic job-search pipeline using <strong>OpenClaw</strong> and <strong>Playwright</strong>: daily cron scrapes LinkedIn for target roles, parallelizes JD extraction across workers, and orchestrates LLM calls (Codex) for resume tailoring and cover letter generation with retry logic and structured fallbacks.
     </li>
     <li>
-      Added retrieval + persistence by storing user preferences and past analyses (targets, locations, tech stack) and using embedding-based similarity to reuse prior outputs, reducing repeated work across sessions and improving consistency.
+      Designed a dual-resume tailoring system: passes both an AI-focused and a full-stack resume to the LLM with a custom prompt (JD keyword extraction → evidence mapping → relevance reranking → page-density enforcement), producing ATS-aligned, role-specific resumes with CHANGELOG and keyword-coverage output.
     </li>
     <li>
-      Implemented guardrails and lightweight evaluation: maintained an offline test set to measure extraction accuracy and hallucination rate; added schema validation + fallbacks to catch malformed outputs, then packaged and shipped the agent via OpenAI Agents SDK.
+      Wired <strong>Google Drive API</strong> (OAuth2, per-company subfolders) and <strong>Notion API</strong> for artifact storage and structured job tracking; added JSON manifest per run, dedup checks, and <strong>Discord</strong> webhook reports; exposed <code>retry</code> / <code>retry-day</code> CLI commands for targeted re-processing.
     </li>
   </ul>
 </div>
