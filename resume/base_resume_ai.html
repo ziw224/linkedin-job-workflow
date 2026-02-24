@@ -65,6 +65,7 @@
       margin-bottom: 1px;
       font-size: 8.7pt;
       line-height: 1.28;
+      text-wrap: pretty;        /* avoids single-word orphan lines */
     }
     ul li::before { content: "●"; position: absolute; left: 0; font-size: 7pt; top: 1px; }
 
@@ -192,13 +193,13 @@
   </div>
   <ul>
     <li>
-      Built an agentic workflow that searches job postings, extracts structured requirements (skills, seniority, location/visa constraints) into schema-validated JSON, and clusters gaps into a prioritized learning plan using tool-calling, retries, and deterministic post-processing for robustness.
+      Built an agentic workflow that searches job postings, extracts structured requirements (skills, seniority, location/visa constraints) into schema-validated JSON, and clusters gaps into a prioritized learning plan — using tool-calling, retries, and deterministic post-processing to ensure reliability.
     </li>
     <li>
       Added retrieval + persistence by storing user preferences and past analyses (targets, locations, tech stack) and using embedding-based similarity to reuse prior outputs, reducing repeated work across sessions and improving consistency.
     </li>
     <li>
-      Implemented guardrails and lightweight evaluation: maintained a small offline set of postings to measure extraction correctness/hallucination rate, and added validation + fallbacks to prevent malformed outputs before packaging/publishing via OpenAI Agents SDK + CLI.
+      Implemented guardrails and lightweight evaluation: maintained an offline test set to measure extraction accuracy and hallucination rate; added schema validation + fallbacks to catch malformed outputs, then packaged and shipped the agent via OpenAI Agents SDK.
     </li>
   </ul>
 </div>
