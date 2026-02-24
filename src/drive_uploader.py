@@ -1,5 +1,12 @@
 """
-src/drive_uploader.py – Upload resume PDFs to Google Drive and return shareable links.
+src/drive_uploader.py – Upload job application files to Google Drive.
+
+Folder structure on Drive:
+    Job Applications - Resumes/
+        └── {Company}/
+                ├── Zihan Wang-Resume-{Company}.pdf
+                ├── Zihan Wang-CoverLetter-{Company}.txt
+                └── Zihan Wang-Why{Company}.txt
 
 Setup (one-time):
   1. Create a Google Cloud project, enable Google Drive API
@@ -17,11 +24,18 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT  = Path(__file__).parent.parent.resolve()
-CREDS_FILE    = PROJECT_ROOT / "config" / "gdrive_credentials.json"
-TOKEN_FILE    = PROJECT_ROOT / "config" / "gdrive_token.json"
-SCOPES        = ["https://www.googleapis.com/auth/drive.file"]
-FOLDER_NAME   = "Job Applications - Resumes"
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+CREDS_FILE   = PROJECT_ROOT / "config" / "gdrive_credentials.json"
+TOKEN_FILE   = PROJECT_ROOT / "config" / "gdrive_token.json"
+SCOPES       = ["https://www.googleapis.com/auth/drive.file"]
+ROOT_FOLDER  = "Job Applications - Resumes"
+
+# MIME types
+_MIME = {
+    ".pdf": "application/pdf",
+    ".txt": "text/plain",
+    ".html": "text/html",
+}
 
 
 def _get_service():
@@ -35,7 +49,6 @@ def _get_service():
     if TOKEN_FILE.exists():
         creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
 
-    # Refresh or re-authorize
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
@@ -49,70 +62,93 @@ def _get_service():
             flow = InstalledAppFlow.from_client_secrets_file(str(CREDS_FILE), SCOPES)
             creds = flow.run_local_server(port=0)
         TOKEN_FILE.write_text(creds.to_json())
-        logger.info(f"Google Drive token saved → {TOKEN_FILE}")
 
     return build("drive", "v3", credentials=creds)
 
 
-def _get_or_create_folder(service, folder_name: str) -> str:
-    """Return the Drive folder ID, creating the folder if it doesn't exist."""
-    # Search for existing folder
-    query = (
-        f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' "
-        f"and trashed=false"
-    )
-    results = service.files().list(q=query, fields="files(id, name)").execute()
+def _get_or_create_folder(service, name: str, parent_id: str | None = None) -> str:
+    """Return a Drive folder ID, creating it if it doesn't exist."""
+    q = f"name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    if parent_id:
+        q += f" and '{parent_id}' in parents"
+
+    results = service.files().list(q=q, fields="files(id)").execute()
     files = results.get("files", [])
     if files:
         return files[0]["id"]
 
-    # Create folder
-    meta = {
-        "name": folder_name,
-        "mimeType": "application/vnd.google-apps.folder",
-    }
+    meta = {"name": name, "mimeType": "application/vnd.google-apps.folder"}
+    if parent_id:
+        meta["parents"] = [parent_id]
     folder = service.files().create(body=meta, fields="id").execute()
-    logger.info(f"Created Google Drive folder: {folder_name}")
+    logger.info(f"  📁 Created Drive folder: {name}")
     return folder["id"]
 
 
-def upload_pdf(pdf_path: str | Path) -> str | None:
-    """
-    Upload a PDF to Google Drive and return a shareable HTTPS link.
+def _upload_file(service, file_path: Path, folder_id: str) -> str:
+    """Upload a single file to a Drive folder. Returns shareable URL."""
+    from googleapiclient.http import MediaFileUpload
 
-    Returns the shareable URL string, or None on failure.
+    mime = _MIME.get(file_path.suffix.lower(), "application/octet-stream")
+    meta = {"name": file_path.name, "parents": [folder_id]}
+    media = MediaFileUpload(str(file_path), mimetype=mime, resumable=False)
+    uploaded = service.files().create(body=meta, media_body=media, fields="id").execute()
+    file_id = uploaded["id"]
+
+    # Anyone with the link can view
+    service.permissions().create(
+        fileId=file_id,
+        body={"type": "anyone", "role": "reader"},
+    ).execute()
+
+    return f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
+
+
+def upload_job_files(
+    company: str,
+    pdf_path: Path | str | None = None,
+    cover_letter: Path | str | None = None,
+    why_company: Path | str | None = None,
+) -> str | None:
     """
-    pdf_path = Path(pdf_path)
-    if not pdf_path.exists():
-        logger.warning(f"  Drive upload skipped — file not found: {pdf_path}")
+    Upload all job application files for a company to a company subfolder on Drive.
+
+        Job Applications - Resumes/
+            └── {company}/
+                    ├── Resume.pdf
+                    ├── CoverLetter.txt
+                    └── WhyCompany.txt
+
+    Returns the Drive shareable URL of the resume PDF (for Notion), or None on failure.
+    """
+    files = {k: Path(v) for k, v in {
+        "pdf":          pdf_path,
+        "cover_letter": cover_letter,
+        "why_company":  why_company,
+    }.items() if v and Path(v).exists()}
+
+    if not files:
+        logger.warning(f"  Drive upload skipped — no files found for {company}")
         return None
 
     try:
-        from googleapiclient.http import MediaFileUpload
+        service = _get_service()
 
-        service   = _get_service()
-        folder_id = _get_or_create_folder(service, FOLDER_NAME)
+        # Root folder → company subfolder
+        root_id    = _get_or_create_folder(service, ROOT_FOLDER)
+        company_id = _get_or_create_folder(service, company, parent_id=root_id)
 
-        # Upload file
-        file_meta = {"name": pdf_path.name, "parents": [folder_id]}
-        media     = MediaFileUpload(str(pdf_path), mimetype="application/pdf", resumable=False)
-        uploaded  = service.files().create(
-            body=file_meta, media_body=media, fields="id"
-        ).execute()
-        file_id = uploaded["id"]
+        pdf_url = None
+        for key, path in files.items():
+            url = _upload_file(service, path, company_id)
+            logger.info(f"  ☁️  Drive [{company}/{path.name}] → {url}")
+            if key == "pdf":
+                pdf_url = url
 
-        # Make it accessible to anyone with the link
-        service.permissions().create(
-            fileId=file_id,
-            body={"type": "anyone", "role": "reader"},
-        ).execute()
-
-        url = f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
-        logger.info(f"  ☁️  Uploaded to Drive: {pdf_path.name} → {url}")
-        return url
+        return pdf_url
 
     except Exception as e:
-        logger.warning(f"  ❌ Drive upload failed [{pdf_path.name}]: {e}")
+        logger.warning(f"  ❌ Drive upload failed [{company}]: {e}")
         return None
 
 
@@ -121,5 +157,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     print("Authenticating with Google Drive...")
     svc = _get_service()
-    folder_id = _get_or_create_folder(svc, FOLDER_NAME)
-    print(f"✅ Auth successful! Drive folder '{FOLDER_NAME}' ready (id: {folder_id})")
+    root_id = _get_or_create_folder(svc, ROOT_FOLDER)
+    print(f"✅ Auth successful! Root folder '{ROOT_FOLDER}' ready (id: {root_id})")

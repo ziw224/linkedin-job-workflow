@@ -69,14 +69,22 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
         company  = job.get("company", "")
         url      = job.get("url") or None
         loc      = job.get("location", "").split(",")[0].strip()
-        pdf_path  = r.get("pdf_path")   # local absolute path to tailored resume PDF
+        pdf_path      = r.get("pdf_path")
+        cover_letter  = r.get("cover_letter")
+        why_company   = r.get("why_company")
+
+        # Upload all files to Drive → company subfolder
         drive_url = None
-        if pdf_path:
-            try:
-                from drive_uploader import upload_pdf
-                drive_url = upload_pdf(pdf_path)
-            except Exception as e:
-                logger.warning(f"  Drive upload skipped: {e}")
+        try:
+            from drive_uploader import upload_job_files
+            drive_url = upload_job_files(
+                company=company,
+                pdf_path=pdf_path,
+                cover_letter=cover_letter,
+                why_company=why_company,
+            )
+        except Exception as e:
+            logger.warning(f"  Drive upload skipped: {e}")
 
         # Dedup by URL
         if url and _url_exists(notion, db_id, url):
