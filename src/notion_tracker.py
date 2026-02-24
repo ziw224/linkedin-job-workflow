@@ -65,10 +65,11 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
             skipped += 1
             continue
 
-        title   = job.get("title", "")
-        company = job.get("company", "")
-        url     = job.get("url") or None
-        loc     = job.get("location", "").split(",")[0].strip()
+        title    = job.get("title", "")
+        company  = job.get("company", "")
+        url      = job.get("url") or None
+        loc      = job.get("location", "").split(",")[0].strip()
+        pdf_path = r.get("pdf_path")  # local absolute path to tailored resume PDF
 
         # Dedup by URL
         if url and _url_exists(notion, db_id, url):
@@ -96,12 +97,17 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
                 "Application Date": {
                     "date": {"start": today}
                 },
+                "Resume": {
+                    "url": f"file://{pdf_path}" if pdf_path else None
+                },
             }
 
             # Remove None-valued properties
             props = {k: v for k, v in props.items() if v is not None}
             if "URL" in props and props["URL"]["url"] is None:
                 del props["URL"]
+            if "Resume" in props and props["Resume"]["url"] is None:
+                del props["Resume"]
 
             notion.pages.create(
                 parent={"database_id": db_id},
