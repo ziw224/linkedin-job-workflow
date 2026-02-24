@@ -109,18 +109,23 @@ def upload_job_files(
     pdf_path: Path | str | None = None,
     cover_letter: Path | str | None = None,
     why_company: Path | str | None = None,
+    date_str: str | None = None,
 ) -> str | None:
     """
-    Upload all job application files for a company to a company subfolder on Drive.
+    Upload all job application files for a company to a date/company subfolder on Drive.
 
         Job Applications - Resumes/
-            └── {company}/
-                    ├── Resume.pdf
-                    ├── CoverLetter.txt
-                    └── WhyCompany.txt
+            └── 2026-02-25/
+                    └── Cognition/
+                            ├── Resume.pdf
+                            ├── CoverLetter.txt
+                            └── WhyCompany.txt
 
     Returns the Drive shareable URL of the resume PDF (for Notion), or None on failure.
     """
+    from datetime import date as _date
+    today = date_str or _date.today().isoformat()
+
     files = {k: Path(v) for k, v in {
         "pdf":          pdf_path,
         "cover_letter": cover_letter,
@@ -134,9 +139,10 @@ def upload_job_files(
     try:
         service = _get_service()
 
-        # Root folder → company subfolder
+        # Root folder → date subfolder → company subfolder
         root_id    = _get_or_create_folder(service, ROOT_FOLDER)
-        company_id = _get_or_create_folder(service, company, parent_id=root_id)
+        date_id    = _get_or_create_folder(service, today,    parent_id=root_id)
+        company_id = _get_or_create_folder(service, company,  parent_id=date_id)
 
         pdf_url = None
         for key, path in files.items():
