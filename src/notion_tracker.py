@@ -69,7 +69,14 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
         company  = job.get("company", "")
         url      = job.get("url") or None
         loc      = job.get("location", "").split(",")[0].strip()
-        pdf_path = r.get("pdf_path")  # local absolute path to tailored resume PDF
+        pdf_path  = r.get("pdf_path")   # local absolute path to tailored resume PDF
+        drive_url = None
+        if pdf_path:
+            try:
+                from drive_uploader import upload_pdf
+                drive_url = upload_pdf(pdf_path)
+            except Exception as e:
+                logger.warning(f"  Drive upload skipped: {e}")
 
         # Dedup by URL
         if url and _url_exists(notion, db_id, url):
@@ -101,11 +108,11 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
                     "files": [
                         {
                             "type": "external",
-                            "name": os.path.basename(pdf_path),
-                            "external": {"url": f"file://{pdf_path}"},
+                            "name": os.path.basename(str(pdf_path)),
+                            "external": {"url": drive_url},
                         }
                     ]
-                } if pdf_path else None,
+                } if drive_url else None,
             }
 
             # Remove None-valued properties

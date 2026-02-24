@@ -9,3 +9,7 @@ config/users/
 config/candidate.txt
 resume/*.pdf
 resume/*.png
+
+# Google Drive OAuth
+config/gdrive_credentials.json
+config/gdrive_token.json
