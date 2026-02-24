@@ -232,6 +232,7 @@ def cmd_retry(url: str, title: str = "", company: str = "", location: str = "San
         logging.warning("JD text empty — cover letter may be generic")
 
     # Run pipeline
+    import shutil as _shutil
     from config.settings import OUTPUT_DIR
     from main import process_job
     from notion_tracker import add_jobs_to_notion
@@ -242,9 +243,28 @@ def cmd_retry(url: str, title: str = "", company: str = "", location: str = "San
     result = process_job(job, today_dir)
     logging.info(f"{'✅' if result['success'] else '❌'} Done: {job['title']} @ {job['company']}")
 
-    # Sync to Notion
-    add_jobs_to_notion([result])
-    logging.info(f"Output: {today_dir / _re.sub(r'[^a-zA-Z0-9_-]', '_', job['company'])}")
+    # Sync to Notion + Drive, then clean up local files
+    drive_url_map = add_jobs_to_notion([result])
+
+    # Update today's manifest with Drive URL
+    manifest_path = PROJECT_ROOT / "data" / f"jobs_{date.today().isoformat()}.json"
+    if drive_url_map and manifest_path.exists():
+        try:
+            import json as _json
+            entries = _json.loads(manifest_path.read_text())
+            for entry in entries:
+                if entry.get("url") in drive_url_map:
+                    entry["drive_url"] = drive_url_map[entry["url"]]
+            manifest_path.write_text(_json.dumps(entries, ensure_ascii=False, indent=2))
+        except Exception:
+            pass
+
+    # Delete local company folder — files are on Drive
+    company_slug = _re.sub(r"[^a-zA-Z0-9_-]", "_", job["company"])
+    company_dir = today_dir / company_slug
+    if company_dir.exists():
+        _shutil.rmtree(company_dir, ignore_errors=True)
+        logging.info(f"Local files cleaned up: {company_dir.name}")
 
 
 def cmd_retry_day(day: str | None = None):
@@ -276,17 +296,11 @@ def cmd_retry_day(day: str | None = None):
     today_dir = OUTPUT_DIR / target_date
     today_dir.mkdir(parents=True, exist_ok=True)
 
-    # Find failed jobs: output dir missing or has no PDF
-    failed = []
-    for job in jobs:
-        company_slug = _re.sub(r"[^a-zA-Z0-9_-]", "_", job["company"])
-        comp_dir = today_dir / company_slug
-        has_pdf = comp_dir.exists() and any(f.suffix == ".pdf" for f in comp_dir.iterdir())
-        if not has_pdf:
-            failed.append(job)
+    # A job is "done" if it has a drive_url in the manifest (files live on Drive, not local disk)
+    failed = [j for j in jobs if not j.get("drive_url")]
 
     if not failed:
-        logging.info(f"✅ All jobs for {target_date} already succeeded — nothing to retry.")
+        logging.info(f"✅ All jobs for {target_date} already on Drive — nothing to retry.")
         return
 
     logging.info(f"Found {len(failed)} failed jobs for {target_date}, re-running…")
@@ -322,11 +336,31 @@ def cmd_retry_day(day: str | None = None):
         status = "✅" if result["success"] else "❌"
         logging.info(f"  {status} {job['title']} @ {job['company']}")
 
+    import shutil as _shutil
     ok = sum(r["success"] for r in results)
     logging.info(f"\nDone — {ok}/{len(results)} jobs succeeded")
 
     if results:
-        add_jobs_to_notion([r for r in results if r["success"]])
+        drive_url_map = add_jobs_to_notion([r for r in results if r["success"]])
+
+        # Update manifest with Drive URLs
+        if drive_url_map:
+            try:
+                all_entries = _json.loads(manifest_path.read_text())
+                for entry in all_entries:
+                    if entry.get("url") in drive_url_map:
+                        entry["drive_url"] = drive_url_map[entry["url"]]
+                manifest_path.write_text(_json.dumps(all_entries, ensure_ascii=False, indent=2))
+            except Exception:
+                pass
+
+        # Clean up local company dirs — files are on Drive
+        for r in results:
+            if r.get("success"):
+                company_slug = _re.sub(r"[^a-zA-Z0-9_-]", "_", r["job"]["company"])
+                comp_dir = today_dir / company_slug
+                if comp_dir.exists():
+                    _shutil.rmtree(comp_dir, ignore_errors=True)
 
 
 COMMANDS = {"scrape": cmd_scrape, "run": cmd_run, "retry": cmd_retry, "retry-day": cmd_retry_day, "status": cmd_status, "model": cmd_model}

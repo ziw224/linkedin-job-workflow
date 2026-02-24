@@ -15,6 +15,7 @@ Cron (7:30 AM daily — finishes well before 9 AM):
 import json
 import logging
 import re
+import shutil
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -178,12 +179,28 @@ def run():
     logger.info(f"Saved {len(seen)} seen job IDs")
 
     send_discord_report(results)
-    add_jobs_to_notion(results, only_success=False)  # add all scraped jobs; dedup prevents duplicates on retry
+    drive_url_map = add_jobs_to_notion(results, only_success=False)
+
+    # Update manifest with Drive URLs
+    if drive_url_map:
+        try:
+            entries = json.loads(jobs_log_path.read_text())
+            for entry in entries:
+                if entry.get("url") in drive_url_map:
+                    entry["drive_url"] = drive_url_map[entry["url"]]
+            jobs_log_path.write_text(json.dumps(entries, ensure_ascii=False, indent=2))
+            logger.info(f"Manifest updated with {len(drive_url_map)} Drive URL(s)")
+        except Exception as e:
+            logger.warning(f"Manifest Drive URL update failed: {e}")
+
+    # Clean up local output — files are now on Google Drive
+    if today_dir.exists():
+        shutil.rmtree(today_dir, ignore_errors=True)
+        logger.info(f"Local output cleaned up: {today_dir}")
 
     elapsed = int(time.time() - t_start)
     ok = sum(r["success"] for r in results)
-    logger.info(f"\n✅ Done in {elapsed//60}m {elapsed%60}s — {ok}/{len(results)} jobs ready")
-    logger.info(f"   Output: {today_dir}")
+    logger.info(f"\n✅ Done in {elapsed//60}m {elapsed%60}s — {ok}/{len(results)} jobs on Drive")
 
 
 if __name__ == "__main__":

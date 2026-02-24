@@ -29,13 +29,16 @@ def _url_exists(notion, db_id: str, url: str) -> bool:
         return False  # fail open — allow insert
 
 
-def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
-    """Add jobs to Notion tracker.
+def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> dict[str, str]:
+    """Add jobs to Notion tracker and upload files to Google Drive.
 
     Args:
         results:      List of result dicts from process_job().
         only_success: If True (default), only add jobs where resume was successfully generated.
                       Set False to add all scraped jobs regardless of resume status.
+
+    Returns:
+        dict mapping job_url → drive_pdf_url for every successfully uploaded job.
     """
     token = os.getenv("NOTION_TOKEN", "")
     db_id = os.getenv("NOTION_DB_ID", "")
@@ -53,6 +56,7 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
     notion = Client(auth=token)
     today = date.today().isoformat()
 
+    drive_url_map: dict[str, str] = {}  # job_url → drive_pdf_url
     ok, failed, skipped = 0, 0, 0
     for r in results:
         job = r.get("job", {})
@@ -83,6 +87,8 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
                 cover_letter=cover_letter,
                 why_company=why_company,
             )
+            if drive_url and url:
+                drive_url_map[url] = drive_url
         except Exception as e:
             logger.warning(f"  Drive upload skipped: {e}")
 
@@ -142,3 +148,4 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
             logger.warning(f"  ❌ Notion failed [{title} @ {company}]: {e}")
 
     logger.info(f"Notion sync — {ok} added, {skipped} skipped, {failed} failed")
+    return drive_url_map
