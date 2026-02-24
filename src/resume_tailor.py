@@ -47,8 +47,15 @@ OUTPUT REQUIREMENTS:
 Return the resume as HTML only (no markdown), keeping it printable to PDF:
 - Letter size, safe margins (use @page {{ size: letter; margin: 0.42in; }})
 - Do NOT set a fixed body height; do NOT use overflow:hidden
-- Keep it one page (compact but readable). If it would exceed one page, you must compress by reducing bullet count and removing less relevant items—not by shrinking font below 9.0pt.
 - Preserve clickable links.
+
+PAGE DENSITY (CRITICAL):
+- TARGET: fill 88–98% of the page. A resume with large blank space at the bottom is a failure.
+- Each Experience entry: write 4–6 bullets.
+- Each Project entry: write 2–4 bullets.
+- If content is too sparse after a first pass, EXPAND: add back removed bullets, add implementation detail, restore a dropped project, or add a one-line Summary at the top.
+- Only compress (reduce bullets / drop a project) if content would EXCEED one page.
+- Never leave more than ~10% blank space at the bottom.
 
 TAILORING OBJECTIVES:
 1) Keyword alignment: Mirror the JD vocabulary naturally (ATS-friendly) by swapping synonyms in bullets and skills.
@@ -84,6 +91,7 @@ Step C — Generate Tailored Resume:
 - Ensure the first 3-5 bullets across Experience/Projects directly hit the JD must-haves.
 
 Step D — Quality Gate (MUST PASS):
+- Density check: Estimate page fill. If below 88%, go back and expand bullets or restore a project before outputting.
 - One-page check: If too long, remove least relevant bullets/projects.
 - Truthfulness check: Every claim traceable to sources.
 - Consistency check: Titles/dates consistent with AI_RESUME_HTML.
