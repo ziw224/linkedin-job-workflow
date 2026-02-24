@@ -98,16 +98,22 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> None:
                     "date": {"start": today}
                 },
                 "Resume": {
-                    "url": f"file://{pdf_path}" if pdf_path else None
-                },
+                    "files": [
+                        {
+                            "type": "external",
+                            "name": os.path.basename(pdf_path),
+                            "external": {"url": f"file://{pdf_path}"},
+                        }
+                    ]
+                } if pdf_path else None,
             }
 
             # Remove None-valued properties
             props = {k: v for k, v in props.items() if v is not None}
             if "URL" in props and props["URL"]["url"] is None:
                 del props["URL"]
-            if "Resume" in props and props["Resume"]["url"] is None:
-                del props["Resume"]
+            # Resume is None when pdf_path is missing (already filtered above by `if pdf_path else None`)
+            # but just in case, clean it up
 
             notion.pages.create(
                 parent={"database_id": db_id},
