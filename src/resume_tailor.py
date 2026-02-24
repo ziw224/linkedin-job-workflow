@@ -167,6 +167,10 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as tf:
                 out_file = tf.name
             try:
+                # Inject nvm node path so codex can find node in cron environment
+                _codex_env = os.environ.copy()
+                _nvm_node_dir = str(Path(CODEX_BIN).parent)
+                _codex_env["PATH"] = _nvm_node_dir + os.pathsep + _codex_env.get("PATH", "")
                 cx = subprocess.run(
                     [
                         CODEX_BIN, "exec",
@@ -180,6 +184,7 @@ def tailor_resume(job: dict, output_dir: Path | None = None) -> Path | None:
                     capture_output=True,
                     text=True,
                     timeout=420,
+                    env=_codex_env,
                 )
                 if cx.returncode != 0:
                     logger.error(f"  Codex call failed (code {cx.returncode}): {(cx.stderr or cx.stdout or '')[:300]}")
