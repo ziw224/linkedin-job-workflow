@@ -121,7 +121,7 @@ def upload_job_files(
                             ├── CoverLetter.txt
                             └── WhyCompany.txt
 
-    Returns the Drive shareable URL of the resume PDF (for Notion), or None on failure.
+    Returns the Drive shareable URL of the company subfolder (for Notion), or None on failure.
     """
     from datetime import date as _date
     today = date_str or _date.today().isoformat()
@@ -144,14 +144,20 @@ def upload_job_files(
         date_id    = _get_or_create_folder(service, today,    parent_id=root_id)
         company_id = _get_or_create_folder(service, company,  parent_id=date_id)
 
-        pdf_url = None
+        # Make the company subfolder publicly accessible (so the folder link works)
+        service.permissions().create(
+            fileId=company_id,
+            body={"type": "anyone", "role": "reader"},
+        ).execute()
+        folder_url = f"https://drive.google.com/drive/folders/{company_id}"
+
+        # Upload individual files
         for key, path in files.items():
             url = _upload_file(service, path, company_id)
             logger.info(f"  ☁️  Drive [{company}/{path.name}] → {url}")
-            if key == "pdf":
-                pdf_url = url
 
-        return pdf_url
+        logger.info(f"  📁 Drive folder [{company}] → {folder_url}")
+        return folder_url
 
     except Exception as e:
         logger.warning(f"  ❌ Drive upload failed [{company}]: {e}")

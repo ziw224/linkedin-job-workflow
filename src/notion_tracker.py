@@ -122,7 +122,7 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> dict[s
                     "files": [
                         {
                             "type": "external",
-                            "name": os.path.basename(str(pdf_path)),
+                            "name": f"{company} — Application Files",
                             "external": {"url": drive_url},
                         }
                     ]
