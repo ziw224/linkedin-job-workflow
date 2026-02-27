@@ -26,42 +26,46 @@
   },
   "categories": {
     "sde": {
-      "_comment": "Full Stack / Software Engineer roles",
+      "_comment": "SDE roles at AI-focused companies (backend/infra that works on AI products)",
       "keywords": [
         "Software Engineer",
-        "Full Stack Engineer"
+        "Backend Engineer"
       ],
       "boost_keywords": [
         "Entry Level Software Engineer",
         "New Grad Software Engineer",
-        "Software Engineer New Grad",
-        "Junior Software Engineer"
+        "Software Engineer New Grad"
       ],
       "experience_levels": [
         2
       ],
       "_experience_levels_comment": "1=Internship 2=Entry 3=Associate 4=Mid-Senior",
-      "target_count": 5
+      "target_count": 3
     },
     "ai": {
-      "_comment": "AI Engineer / Agentic AI roles",
+      "_comment": "AI Agent / LLM / GenAI Engineer roles",
       "keywords": [
         "AI Engineer",
-        "Applied AI Engineer"
+        "AI Agent Engineer",
+        "LLM Engineer",
+        "Applied AI Engineer",
+        "GenAI Engineer"
       ],
       "boost_keywords": [
-        "GenAI Engineer",
+        "Agentic AI Engineer",
         "Forward Deployed AI Engineer",
+        "AI Software Engineer",
         "New Grad AI Engineer",
-        "Entry Level AI Engineer"
+        "Entry Level AI Engineer",
+        "AI Agent Developer"
       ],
       "experience_levels": [
         2,
         3,
         4
       ],
-      "_experience_levels_comment": "1=Internship 2=Entry 3=Associate 4=Mid-Senior. AI Engineer roles often post at level 4 even for new grads.",
-      "target_count": 5
+      "_experience_levels_comment": "1=Internship 2=Entry 3=Associate 4=Mid-Senior. AI Agent roles often post at level 4 even for new grads.",
+      "target_count": 8
     }
   },
   "max_candidates_preview": 20,
