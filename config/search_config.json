@@ -2,6 +2,14 @@
   "_comment": "Edit this file to customize job search behavior. No code changes needed.",
   "locations": [
     "San Francisco, CA",
+    "San Jose, CA",
+    "Palo Alto, CA",
+    "Mountain View, CA",
+    "Sunnyvale, CA",
+    "Santa Clara, CA",
+    "Cupertino, CA",
+    "Menlo Park, CA",
+    "Redwood City, CA",
     "Remote"
   ],
   "sort_by": "DD",
