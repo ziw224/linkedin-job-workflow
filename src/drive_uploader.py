@@ -109,6 +109,7 @@ def upload_job_files(
     pdf_path: Path | str | None = None,
     cover_letter: Path | str | None = None,
     why_company: Path | str | None = None,
+    html_path: Path | str | None = None,
     date_str: str | None = None,
 ) -> str | None:
     """
@@ -130,6 +131,7 @@ def upload_job_files(
         "pdf":          pdf_path,
         "cover_letter": cover_letter,
         "why_company":  why_company,
+        "html":         html_path,
     }.items() if v and Path(v).exists()}
 
     if not files:

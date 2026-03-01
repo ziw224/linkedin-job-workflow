@@ -74,6 +74,7 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> dict[s
         url      = job.get("url") or None
         loc      = job.get("location", "").split(",")[0].strip()
         pdf_path      = r.get("pdf_path")
+        html_path     = r.get("html_path")
         cover_letter  = r.get("cover_letter")
         why_company   = r.get("why_company")
 
@@ -84,6 +85,7 @@ def add_jobs_to_notion(results: list[dict], only_success: bool = True) -> dict[s
             drive_url = upload_job_files(
                 company=company,
                 pdf_path=pdf_path,
+                html_path=html_path,
                 cover_letter=cover_letter,
                 why_company=why_company,
             )

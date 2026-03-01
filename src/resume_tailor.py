@@ -53,7 +53,7 @@ PAGE DENSITY (CRITICAL):
 - TARGET: fill 88–98% of the page. A resume with large blank space at the bottom is a failure.
 - Each Experience entry: write 4–6 bullets.
 - Each Project entry: write 2–4 bullets.
-- If content is too sparse after a first pass, EXPAND: add back removed bullets, add implementation detail, restore a dropped project, or add a one-line Summary at the top.
+- If content is too sparse after a first pass, EXPAND: add back removed bullets, add implementation detail, or restore a dropped project. Do NOT add a Summary section.
 - Only compress (reduce bullets / drop a project) if content would EXCEED one page.
 - Never leave more than ~10% blank space at the bottom.
 
@@ -67,7 +67,7 @@ ALLOWED EDITS (DO):
 - Rewrite bullets to emphasize the most relevant aspects (agents, RAG, eval loops, latency/cost tradeoffs, tool use, pipelines, distributed systems, web apps, API design).
 - Swap keywords to match JD terms (e.g., "agent orchestration" vs "workflow orchestration"; "retrieval" vs "search"; "re-ranking" vs "ranking model").
 - Merge or split bullets if it improves clarity and fits one page.
-- Add a short "Summary" line at the top ONLY if the JD strongly benefits, and keep it to 1 line.
+- Do NOT add a Summary or Objective section. The resume should start directly with Education.
 - Select which projects to include and in what order; you may drop a project if it is less relevant.
 
 DISALLOWED EDITS (DO NOT):
