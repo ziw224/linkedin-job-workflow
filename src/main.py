@@ -127,7 +127,7 @@ def run():
 
     # ── Phase 1: Scrape (with automatic fallback) ──────────────────────────────
     logger.info("\n📡 Phase 1: Scraping LinkedIn…")
-    selected, seen = get_new_jobs(on_progress=lambda msg: print(msg, flush=True))
+    selected, seen, extras = get_new_jobs(on_progress=lambda msg: print(msg, flush=True))
 
     if not selected:
         logger.info("No new jobs found today.")
@@ -180,6 +180,16 @@ def run():
 
     send_discord_report(results)
     drive_url_map = add_jobs_to_notion(results, only_success=False)
+
+    # ── Also sync extras (scraped but not processed) → Notion, no resume ──────
+    if extras:
+        logger.info(f"\n📋 Syncing {len(extras)} extra jobs to Notion (no resume)…")
+        extra_results = [
+            {"job": job, "html_path": None, "pdf_path": None,
+             "cover_letter": None, "why_company": None, "success": False}
+            for job in extras
+        ]
+        add_jobs_to_notion(extra_results, only_success=False)
 
     # Update manifest with Drive URLs
     if drive_url_map:

@@ -366,7 +366,7 @@ def _split_by_category(jobs: list[dict]) -> tuple[list[dict], list[dict]]:
 
 # ── Public Entry Point ─────────────────────────────────────────────────────────
 
-def get_new_jobs(on_progress: ProgressFn = None) -> tuple[list[dict], set[str]]:
+def get_new_jobs(on_progress: ProgressFn = None) -> tuple[list[dict], set[str], list[dict]]:
     """
     Return (new_jobs, updated_seen_set).
     Implements multi-stage fallback if configured.
@@ -410,6 +410,9 @@ def get_new_jobs(on_progress: ProgressFn = None) -> tuple[list[dict], set[str]]:
         log(f"  After [{label}]: {len(sde)} SDE + {len(ai)} AI")
 
     # ── Final ──────────────────────────────────────────────────────────────────
-    final = sde[:TARGET_SDE_JOBS] + ai[:TARGET_AI_JOBS]
+    final  = sde[:TARGET_SDE_JOBS] + ai[:TARGET_AI_JOBS]
+    extras = sde[TARGET_SDE_JOBS:] + ai[TARGET_AI_JOBS:]   # scraped but not processed
     log(f"\n🎯 Final selection: {len(final)} jobs ({len(sde[:TARGET_SDE_JOBS])} SDE + {len(ai[:TARGET_AI_JOBS])} AI)")
-    return final, seen
+    if extras:
+        log(f"   +{len(extras)} extras found (will be added to Notion without resume)")
+    return final, seen, extras
